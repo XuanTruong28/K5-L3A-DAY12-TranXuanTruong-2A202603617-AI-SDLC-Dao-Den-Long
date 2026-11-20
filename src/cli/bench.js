@@ -2,7 +2,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import os from 'node:os';
 import { Simulation } from '../core/simulation.js';
 import { Mulberry32 } from '../core/prng.js';
@@ -164,6 +164,22 @@ export async function runBenchmark({ seed = 42, duration = 30, outPath = 'bench.
   });
 
   const distDir = path.resolve('dist');
+  const mainJsPath = path.resolve('src/render/main.js');
+  const distIndex = path.join(distDir, 'index.html');
+  let needBuild = !fs.existsSync(distDir) || !fs.existsSync(distIndex);
+  if (!needBuild && fs.existsSync(mainJsPath)) {
+    try {
+      if (fs.statSync(mainJsPath).mtimeMs > fs.statSync(distIndex).mtimeMs) {
+        needBuild = true;
+      }
+    } catch (e) {}
+  }
+  if (needBuild) {
+    try {
+      execSync('npm run build', { stdio: 'ignore' });
+    } catch (e) {}
+  }
+
   const rootDir = fs.existsSync(distDir) ? distDir : path.resolve('.');
 
   let peak_mem_mb = Math.round(process.memoryUsage().rss / (1024 * 1024));
@@ -186,6 +202,13 @@ export async function runBenchmark({ seed = 42, duration = 30, outPath = 'bench.
           res.end('Invalid JSON');
         }
       });
+      return;
+    }
+
+    // Force redirect to benchmark mode if visiting root without params
+    if (url.pathname === '/' && !url.searchParams.has('bench')) {
+      res.writeHead(302, { 'Location': `/?bench=1&seed=${seed}&duration=${duration}` });
+      res.end();
       return;
     }
 
@@ -216,16 +239,12 @@ export async function runBenchmark({ seed = 42, duration = 30, outPath = 'bench.
   });
 
   const benchUrl = `http://127.0.0.1:${port}/?bench=1&seed=${seed}&duration=${duration}`;
-  const tmpProfile = path.join(os.tmpdir(), `bench_profile_${Date.now()}`);
-
   const browserArgs = [
-    `--app=${benchUrl}`,
+    '--new-window',
     '--window-size=1280,720',
     '--disable-gpu-vsync',
     '--disable-frame-rate-limit',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--user-data-dir=${tmpProfile}`
+    benchUrl
   ];
 
   let browserProcess;
@@ -267,10 +286,6 @@ export async function runBenchmark({ seed = 42, duration = 30, outPath = 'bench.
     if (browserProcess) {
       try { browserProcess.kill(); } catch (e) {}
     }
-    // Clean up temporary profile
-    try {
-      fs.rmSync(tmpProfile, { recursive: true, force: true });
-    } catch (e) {}
   }
 
   // Merge peak_mem_mb and format

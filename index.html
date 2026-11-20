@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Đảo Đèn Lồng — Three Nights Journey</title>
+  <script>
+    if (window.location.search.includes('bench') || window.location.hash.includes('bench')) {
+      document.documentElement.classList.add('is-bench-mode');
+    }
+  </script>
   <style>
     * {
       box-sizing: border-box;
@@ -546,6 +551,12 @@
     }
 
     /* WELCOME SCREEN STYLES */
+    html.is-bench-mode #welcome-screen {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
     #welcome-screen {
       position: absolute;
       top: 0;

@@ -1,6 +1,8 @@
 # Video Demo — Đảo Đèn Lồng (Release v1.0.0)
 
-Video demo trực tiếp gameplay và bằng chứng kỹ thuật (dưới 5 phút) có thể được lưu trữ tại đường dẫn này: `docs/demo/demo.mp4` hoặc đính kèm trực tiếp trên GitHub Release v1.0.0 assets.
+Video demo trực tiếp gameplay và bằng chứng kỹ thuật (dưới 5 phút):
+- **Tải trực tiếp từ GitHub Release v1.0.0:** [demo.mp4 (Release Assets)](https://github.com/XuanTruong28/K5-L3A-DAY12-TranXuanTruong-2A202603617-AI-SDLC-Dao-Den-Long/releases/download/v1.0.0/demo.mp4)
+- **Tệp lưu trữ cục bộ:** `docs/demo/demo.mp4`
 
 Nội dung video trình diễn:
 1. Chơi trực tiếp trải nghiệm Đêm 1, Đêm 2 (Cầu tre, Bệ phóng), Đêm 3 (Đảo Chuông 3 tầng, Gió giật).

@@ -2,7 +2,7 @@
 
 > **Tác giả:** Trần Xuân Trường · **MSSV:** 2A202603617 · **Lớp:** K5-L3A  
 > **Phiên bản:** v1.0.0 (Phase 4 — Release) · **Test Contract:** v1.3  
-> **Demo Video:** [docs/demo/demo.mp4](docs/demo/demo.mp4)
+> **Demo Video:** [docs/demo/demo.mp4](docs/demo/demo.mp4) · [Tải bản HD (GitHub Release)](https://github.com/XuanTruong28/K5-L3A-DAY12-TranXuanTruong-2A202603617-AI-SDLC-Dao-Den-Long/releases/download/v1.0.0/demo.mp4)
 
 ---
 

@@ -576,7 +576,11 @@ let lastShadeChaseSubTick = 0;
 // BENCHMARK MODE (Ticket-04, Contract v1.3)
 // ==========================================
 const urlParams = new URLSearchParams(window.location.search);
-const isBenchmark = urlParams.get('bench') === '1' || urlParams.get('benchmark') === '1';
+const isBenchmark = urlParams.get('bench') === '1' ||
+                    urlParams.get('benchmark') === '1' ||
+                    window.location.search.includes('bench') ||
+                    window.location.hash.includes('bench') ||
+                    document.documentElement.classList.contains('is-bench-mode');
 const benchSeed = parseInt(urlParams.get('seed') || '42', 10);
 const benchDuration = parseFloat(urlParams.get('duration') || '30');
 
@@ -637,8 +641,41 @@ function finishAndSendBenchmark() {
 
 // Game Started state
 let gameStarted = isBenchmark;
-if (isBenchmark && welcomeScreen) {
-  welcomeScreen.style.display = 'none';
+let benchHudElement = null;
+
+if (isBenchmark) {
+  gameStarted = true;
+  const ws = document.getElementById('welcome-screen');
+  if (ws) {
+    ws.style.setProperty('display', 'none', 'important');
+    ws.remove();
+  }
+  // Create beautiful live Benchmark HUD
+  benchHudElement = document.createElement('div');
+  benchHudElement.id = 'bench-hud-overlay';
+  benchHudElement.style.cssText = `
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14, 20, 48, 0.94);
+    border: 2px solid #38bdf8;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.4);
+    border-radius: 14px;
+    padding: 12px 28px;
+    color: #f5f1e6;
+    z-index: 10000;
+    text-align: center;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    pointer-events: none;
+    min-width: 440px;
+  `;
+  benchHudElement.innerHTML = `
+    <div style="font-size: 18px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px;">⚡ BENCHMARK MODE (Hợp đồng v1.3)</div>
+    <div style="font-size: 13px; color: #94a3b8; margin: 3px 0 6px 0;">Đảo 1 · 200 Quái Lượn · 100 Đom Đóm · 3 Đèn 100 Dầu · Quỹ đạo CCW R=30m Y=15m</div>
+    <div id="bench-hud-status" style="font-size: 15px; font-weight: 600; color: #fde68a;">⏳ Khởi động mô phỏng (Warmup 3.0s)...</div>
+  `;
+  document.body.appendChild(benchHudElement);
 }
 
 if (btnStartGame) {
@@ -2678,7 +2715,7 @@ function animate(now) {
   const delta = Math.min((now - lastTime) / 1000.0, 0.1);
   lastTime = now;
 
-  if (!gameStarted) {
+  if (!gameStarted && !isBenchmark) {
     accumulator = 0;
     // Gentle cinematic orbiting camera around island & Mây while on Welcome Screen
     camYaw += delta * 0.12;
@@ -2809,14 +2846,31 @@ function animate(now) {
     camera.position.set(camX, camY, camZ);
     camera.lookAt(0, 0, 0);
 
-    if (now >= benchWarmupEnd && now < benchMeasureEnd) {
+    const statusEl = document.getElementById('bench-hud-status');
+    if (now < benchWarmupEnd) {
+      const warmupRemaining = Math.max(0, (benchWarmupEnd - now) / 1000.0).toFixed(1);
+      if (statusEl) {
+        statusEl.textContent = `⏳ Khởi động mô phỏng (Warmup còn ${warmupRemaining}s)...`;
+        statusEl.style.color = '#fde68a';
+      }
+    } else if (now < benchMeasureEnd) {
       const dt = Math.max(0.1, now - lastBenchFrameTime);
       benchDtList.push(dt);
+      const measuredSec = ((now - benchWarmupEnd) / 1000.0).toFixed(1);
+      const instantFps = Math.round(1000.0 / dt);
+      if (statusEl) {
+        statusEl.textContent = `📊 Đang đo: ${measuredSec}s / ${benchDuration}s · FPS: ${instantFps} · Khung hình: ${benchDtList.length}`;
+        statusEl.style.color = '#38ef7d';
+      }
     }
     lastBenchFrameTime = now;
 
     if (now >= benchMeasureEnd && !benchReported) {
       benchReported = true;
+      if (statusEl) {
+        statusEl.textContent = `✅ Đã đo xong! Đang xuất tệp kết quả bench.json...`;
+        statusEl.style.color = '#38bdf8';
+      }
       finishAndSendBenchmark();
     }
   } else {

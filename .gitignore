@@ -5,3 +5,4 @@ tests/tmp/
 .env.*
 .DS_Store
 Thumbs.db
+docs/demo/*.mp4
