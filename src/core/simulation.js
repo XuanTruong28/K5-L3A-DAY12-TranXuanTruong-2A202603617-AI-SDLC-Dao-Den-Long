@@ -268,6 +268,12 @@ export class Simulation {
       // Tier 2 (center disk r <= 8 at Y = 6)
       if (r <= 8.0) return 6.0;
 
+      // Summit descent ramp/stairs from Tier 2 (Y=6.0 at z=7.5) down to Tier 1 (Y=3.0 at z=11.5)
+      if (Math.abs(x) <= 2.2 && z >= 7.5 && z <= 11.5) {
+        const t = (11.5 - z) / (11.5 - 7.5);
+        return round3(3.0 + t * 3.0);
+      }
+
       // Ramps at 30 deg and 150 deg (foot at r=30 Y=0, top at r=24 Y=3)
       for (const ramp of this.map.ramps) {
         const rad = (ramp.angle_deg * Math.PI) / 180.0;
@@ -282,8 +288,8 @@ export class Simulation {
         }
       }
 
-      // Tier 1 (ring 12 <= r <= 24 at z > 0, Y = 3)
-      if (r >= 12.0 && r <= 24.0 && z > 0) return 3.0;
+      // Tier 1 (plateau out to r <= 24 at z > 0, Y = 3)
+      if (r <= 24.0 && z > 0) return 3.0;
 
       // Tier 0 (whole island Y = 0)
       return 0.0;
@@ -317,8 +323,8 @@ export class Simulation {
 
       // Check Tier 1 cliff (Y = 3.0): if currentY < 2.5, cannot walk into Tier 1 from outside unless on ramp
       if (currentY < 2.5) {
-        const inTier1Cur = rCur >= 12.0 && rCur <= 24.0 && currentPos[2] > 0;
-        const inTier1Next = nextR >= 12.0 && nextR <= 24.0 && nextZ > 0;
+        const inTier1Cur = rCur <= 24.0 && currentPos[2] > 0;
+        const inTier1Next = nextR <= 24.0 && nextZ > 0;
         if (!inTier1Cur && inTier1Next) {
           let onRamp = false;
           for (const ramp of this.map.ramps) {
@@ -340,10 +346,13 @@ export class Simulation {
         }
       }
 
-      // Check Tier 2 cliff (Y = 6.0): if currentY < 5.5, cannot walk into Tier 2 from outside
+      // Check Tier 2 cliff (Y = 6.0): if currentY < 5.5, cannot walk into Tier 2 from outside unless on summit stairs
       if (currentY < 5.5 && rCur > 8.0 && nextR <= 8.0) {
-        nextX = currentPos[0];
-        nextZ = currentPos[2];
+        const onSummitRamp = Math.abs(nextX) <= 2.2 && nextZ >= 7.0 && nextZ <= 12.0;
+        if (!onSummitRamp) {
+          nextX = currentPos[0];
+          nextZ = currentPos[2];
+        }
       }
     }
 

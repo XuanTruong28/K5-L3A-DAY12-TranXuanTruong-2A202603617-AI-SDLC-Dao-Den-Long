@@ -1167,36 +1167,101 @@ function buildIslandTerrain(night) {
 
   } else if (night === 3) {
     // ----------------- NIGHT 3: ĐẢO CHUÔNG (3 TIERS Y=0, Y=3, Y=6 + BELL TOWER) -----------------
-    // Tier 1: Y=0, R=45m
-    const t1 = new THREE.Mesh(new THREE.CylinderGeometry(45.0, 42.0, 4, 64), sharedGrassMat);
-    t1.position.set(0, -2, 0);
+    // Tier 0: Chân đảo Y=0, R=45m
+    const t0 = new THREE.Mesh(new THREE.CylinderGeometry(45.0, 42.0, 4, 64), sharedGrassMat);
+    t0.position.set(0, -2, 0);
+    t0.receiveShadow = true;
+    islandMeshGroup.add(t0);
+
+    // Tier 1: Cao nguyên bán nguyệt tại Y=3 (R=24m, CHỈ NẰM Ở PHÍA BẮC Z >= 0!)
+    const t1Geo = new THREE.CylinderGeometry(24.0, 24.0, 3.0, 48, 1, false, -Math.PI / 2, Math.PI);
+    const t1 = new THREE.Mesh(t1Geo, sharedGrassMat);
+    t1.position.set(0, 1.5, 0);
     t1.receiveShadow = true;
     islandMeshGroup.add(t1);
 
-    // Tier 2: Plateau at Y=3 (r_inner: 12, r_outer: 24, z >= 0)
-    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(24.0, 24.0, 3.0, 48), sharedGrassMat);
-    t2.position.set(0, 1.5, 0);
+    // Vách đá đứng dọc theo Z = 0 ngăn cách Tầng 1 và Tầng 0 phía Nam
+    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x3d4b5c, roughness: 0.9, flatShading: true });
+    const cliffMesh = new THREE.Mesh(new THREE.BoxGeometry(48.0, 3.0, 0.45), cliffMat);
+    cliffMesh.position.set(0, 1.5, 0);
+    cliffMesh.receiveShadow = true;
+    islandMeshGroup.add(cliffMesh);
+
+    // Tier 2: Đỉnh Tháp Chuông tại Y=6, R=8m
+    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(8.0, 8.0, 3.0, 32), sharedGrassMat);
+    t2.position.set(0, 4.5, 0);
     t2.receiveShadow = true;
     islandMeshGroup.add(t2);
 
-    // Tier 3: Summit at Y=6, R=8m
-    const t3 = new THREE.Mesh(new THREE.CylinderGeometry(8.0, 8.0, 3.0, 32), sharedGrassMat);
-    t3.position.set(0, 4.5, 0);
-    t3.receiveShadow = true;
-    islandMeshGroup.add(t3);
+    // ----------------- BẬC THANG ĐÁ ĐI XUỐNG TỪ TẦNG 2 XUỐNG TẦNG 1 (SUMMIT DESCENT STAIRS) -----------------
+    // Kết nối từ (0, 6.0, 7.5) xuống (0, 3.0, 11.5)
+    const summitStairGroup = new THREE.Group();
+    const stairMat = new THREE.MeshStandardMaterial({ color: 0x546274, roughness: 0.88, flatShading: true });
+    const woodRailMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.8 });
 
-    // Stone Ramps at 30° and 150° (from r=30, y=0 to r=24, y=3)
+    // Dốc nền đá nghiêng kết nối 2 tầng
+    const rampLength = Math.hypot(4.0, 3.0); // 5.0m
+    const rampSlope = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.35, rampLength), stairMat);
+    rampSlope.position.set(0, 4.5, 9.5);
+    rampSlope.rotation.x = Math.atan2(3.0, 4.0);
+    rampSlope.receiveShadow = true;
+    summitStairGroup.add(rampSlope);
+
+    // 6 bậc đá lớn (stepping stone slabs) phân tầng rõ rệt
+    for (let i = 0; i <= 5; i++) {
+      const stepT = i / 5;
+      const stepZ = 7.5 + stepT * 4.0;
+      const stepY = 6.0 - stepT * 3.0;
+      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 0.8), stairMat);
+      stepMesh.position.set(0, stepY - 0.1, stepZ);
+      stepMesh.receiveShadow = true;
+      summitStairGroup.add(stepMesh);
+    }
+
+    // 2 hàng cột đèn lồng nhỏ dẫn đường ở 2 bên bậc thang
+    [-1.9, 1.9].forEach(sideX => {
+      [8.0, 11.0].forEach(sideZ => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), woodRailMat);
+        const postY = (sideZ === 8.0) ? 6.0 : 3.6;
+        post.position.set(sideX, postY, sideZ);
+        summitStairGroup.add(post);
+
+        const miniLamp = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffaa33 })
+        );
+        miniLamp.position.set(sideX, postY + 0.6, sideZ);
+        summitStairGroup.add(miniLamp);
+      });
+    });
+    islandMeshGroup.add(summitStairGroup);
+
+    // ----------------- DỐC ĐÁ 30° VÀ 150° NỐI TẦNG 1 VÀ TẦNG 0 -----------------
     const stoneMatRamp = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.9 });
     [30, 150].forEach(deg => {
       const rad = (deg * Math.PI) / 180;
-      const rampLen = 7.0;
-      const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, rampLen), stoneMatRamp);
+      const rampLen = 7.2;
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.4, rampLen), stoneMatRamp);
       const midR = 27.0;
       ramp.position.set(midR * Math.cos(rad), 1.5, midR * Math.sin(rad));
       ramp.rotation.y = -rad + Math.PI / 2;
       ramp.rotation.x = 0.45;
       ramp.receiveShadow = true;
       islandMeshGroup.add(ramp);
+
+      // Cột đèn lồng chỉ dẫn ở đỉnh dốc Tầng 1 (Descent Waypoint)
+      const topX = 24.0 * Math.cos(rad);
+      const topZ = 24.0 * Math.sin(rad);
+      const guidePost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.5, 8), woodRailMat);
+      guidePost.position.set(topX + (deg === 30 ? -1.8 : 1.8), 3.75, topZ);
+      islandMeshGroup.add(guidePost);
+
+      const guideLamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.16, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffaa33 })
+      );
+      guideLamp.position.set(topX + (deg === 30 ? -1.8 : 1.8), 4.6, topZ);
+      islandMeshGroup.add(guideLamp);
     });
 
     // ----------------- ĐƯỜNG ĐÁ TRÒN DẪN ĐẾN CÁC TRỤ ĐÈN (ĐẢO CHUÔNG) -----------------
@@ -1209,6 +1274,19 @@ function buildIslandTerrain(night) {
     addSteppingPath(0, 0, 26.0, 15.0, 0.04);    // Tới chân dốc đá 30°
     addSteppingPath(0, 0, -26.0, 15.0, 0.04);   // Tới chân dốc đá 150°
 
+    // Lát đá dọc theo 2 con dốc để người chơi nhìn rõ đường đi xuống chân đảo
+    for (let d = 24.5; d <= 29.5; d += 1.2) {
+      [30, 150].forEach(deg => {
+        const rad = (deg * Math.PI) / 180;
+        const tRamp = (30.0 - d) / 6.0;
+        const rampY = tRamp * 3.0 + 0.22;
+        const stone = new THREE.Mesh(stoneGeo, stoneMat);
+        stone.position.set(d * Math.cos(rad), rampY, d * Math.sin(rad));
+        stone.receiveShadow = true;
+        islandMeshGroup.add(stone);
+      });
+    }
+
     // Tầng 1 (Y=3.04): Đường đá nối từ đỉnh dốc tới L2, L3 và hội tụ về Bục Nhảy (0, 13)
     addSteppingPath(20.8, 12.0, 18.0, 10.0, 3.04); // Đỉnh dốc 30° -> L2
     addSteppingPath(-20.8, 12.0, -18.0, 10.0, 3.04);// Đỉnh dốc 150° -> L3
@@ -1216,8 +1294,13 @@ function buildIslandTerrain(night) {
     addSteppingPath(-18.0, 10.0, 0.0, 13.0, 3.04);  // L3 -> Bục nhảy
 
     // Tầng 2 (Y=6.04): Đường đá tròn từ điểm đáp bục nhảy (0, 4) men quanh Tháp Chuông tới L1 (0, 6)
+    // Và dẫn tiếp tới đầu Cầu thang đá đi xuống (0, 7.5)!
     addSteppingPath(0.0, 4.0, 0.0, 6.0, 6.04);
+    addSteppingPath(0.0, 6.0, 0.0, 7.5, 6.04); // L1 -> Đầu cầu thang đi xuống
     addStonePlaza(0.0, 6.0, 6.04, 1.4, 6);
+
+    // Chân cầu thang đá (0, 11.5) nối thẳng vào Bục Nhảy (0, 13) trên Tầng 1
+    addSteppingPath(0.0, 11.5, 0.0, 13.0, 3.04);
 
     // Căn nhà nhỏ ấm cúng trên Đảo Chuông (Ngôi nhà sơn cước ở Tầng 1 lộng gió)
     natureGroup.add(buildSmallCottage(0.0, 3.0, 21.0, Math.PI));
@@ -1233,7 +1316,7 @@ function buildIslandTerrain(night) {
       [28, 14], [-26, 12], [16, -26], [-18, -24], [30, -12],
       [-14, 14], [14, 16]
     ].forEach(([tx, tz]) => {
-      const y = (Math.sqrt(tx * tx + tz * tz) <= 24) ? 3 : 0;
+      const y = (Math.sqrt(tx * tx + tz * tz) <= 24 && tz > 0) ? 3 : 0;
       natureGroup.add(buildTropicalTree(tx, tz, y));
     });
 
@@ -1241,7 +1324,7 @@ function buildIslandTerrain(night) {
       [22, 10], [-20, 8], [12, -18], [-14, -16],
       [4, 6]
     ].forEach(([rx, rz], idx) => {
-      const y = (Math.sqrt(rx * rx + rz * rz) <= 8) ? 6 : (Math.sqrt(rx * rx + rz * rz) <= 24 ? 3 : 0);
+      const y = (Math.sqrt(rx * rx + rz * rz) <= 8) ? 6 : (Math.sqrt(rx * rx + rz * rz) <= 24 && rz > 0 ? 3 : 0);
       natureGroup.add(buildMossyRock(rx, rz, y, 0.9 + (idx % 2) * 0.4));
     });
 
