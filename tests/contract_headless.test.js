@@ -119,7 +119,7 @@ test('Error handling: Invalid inputs file returns exit code 2', () => {
   });
 });
 
-test('Test Contract v1.1 Snapshot structure & Determinism on Night 2 and Night 3', () => {
+test('Test Contract v1.2 Snapshot structure & Determinism on Night 2 and Night 3', () => {
   const outNight2 = path.join(TMP_DIR, 'night2_contract.jsonl');
   const outNight3 = path.join(TMP_DIR, 'night3_contract.jsonl');
 
@@ -147,14 +147,20 @@ test('Test Contract v1.1 Snapshot structure & Determinism on Night 2 and Night 3
   assert.equal(snap2.night, 2);
   assert.ok(snap2.player.vel);
   assert.ok(snap2.player.grounded !== undefined);
+  assert.ok(snap2.player.capacity !== undefined);
   assert.ok(snap2.wind);
   assert.ok(Array.isArray(snap2.motes));
   assert.ok(Array.isArray(snap2.drifters));
   assert.ok(Array.isArray(snap2.charms));
+  assert.ok(snap2.lanterns[0].fuel !== undefined);
+  assert.ok(snap2.lanterns[0].ever_lit !== undefined);
+  assert.ok(snap2.lanterns[0].relit_count !== undefined);
 
   const lines3 = fs.readFileSync(outNight3, 'utf8').trim().split('\n').map(l => JSON.parse(l));
   const snap3 = lines3[0];
   assert.equal(snap3.type, 'snapshot');
   assert.equal(snap3.night, 3);
   assert.equal(snap3.charms.length, 2); // C1 and C2 on Night 3
+  assert.ok(snap3.player.capacity !== undefined);
+  assert.ok(snap3.lanterns[0].fuel !== undefined);
 });

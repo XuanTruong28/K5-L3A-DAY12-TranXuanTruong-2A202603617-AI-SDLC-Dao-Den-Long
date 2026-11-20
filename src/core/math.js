@@ -4,6 +4,10 @@ export function round3(val) {
   return Math.round(val * 1000) / 1000;
 }
 
+export function round1(val) {
+  return Math.round(val * 10) / 10;
+}
+
 export function formatPos([x, y, z]) {
   return [round3(x), round3(y), round3(z)];
 }

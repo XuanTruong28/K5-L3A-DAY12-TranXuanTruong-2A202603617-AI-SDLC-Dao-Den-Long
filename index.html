@@ -70,6 +70,19 @@
       from { transform: scale(1); filter: drop-shadow(0 0 2px #ff5a5f); }
       to { transform: scale(1.1); filter: drop-shadow(0 0 12px #ff5a5f); }
     }
+    /* COLORBLIND ACCESSIBLE PALETTE (Ticket-03) */
+    body.colorblind-mode .hud-timer.urgent {
+      color: #ffffff !important;
+      filter: drop-shadow(0 0 10px #ffffff) !important;
+    }
+    body.colorblind-mode .hud-flames {
+      color: #ffffff !important;
+      filter: drop-shadow(0 0 10px #ffffff) !important;
+    }
+    body.colorblind-mode .dot-cloud {
+      background: #00b3ff !important;
+      box-shadow: 0 0 6px #00b3ff !important;
+    }
     .hud-night-badge {
       font-size: 13px;
       font-weight: 600;
@@ -458,7 +471,7 @@
 
   <!-- BOTTOM INVENTORY -->
   <div id="bottom-inventory">
-    <div class="inventory-title">Túi Đom Đóm (Sức Chứa 10)</div>
+    <div class="inventory-title" id="inventory-title">Túi Đom Đóm: 0 / 10</div>
     <div class="mote-slots" id="mote-slots-container">
       <div class="mote-slot"></div>
       <div class="mote-slot"></div>
@@ -521,6 +534,10 @@
         <div class="settings-row">
           <span>🖱 Độ nhạy chuột:</span>
           <input type="range" id="mouse-sens-slider" min="20" max="200" value="100">
+        </div>
+        <div class="settings-row">
+          <span>👁 Bảng màu dễ phân biệt (Mù màu):</span>
+          <input type="checkbox" id="colorblind-toggle" style="width: 20px; height: 20px; accent-color: #00B3FF; cursor: pointer;">
         </div>
       </div>
 

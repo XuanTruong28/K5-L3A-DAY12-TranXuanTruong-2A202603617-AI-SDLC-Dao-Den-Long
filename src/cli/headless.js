@@ -153,7 +153,7 @@ for (let k = 0; k < totalTicks; k++) {
   }
 
   // Stop if game ended (won or lost)
-  if (sim.state === 'won' || (sim.state === 'lost' && sim.player.flames <= 0)) {
+  if (sim.state === 'won' || sim.state === 'lost') {
     break;
   }
 }

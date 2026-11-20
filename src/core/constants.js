@@ -1,5 +1,7 @@
-// Constants and map definitions for Phase 2 (Ticket-02 - Contract v1.1)
+// Constants and map definitions for Phase 3 (Ticket-03 - Contract v1.2)
 import { round3 } from './math.js';
+
+export const CONTRACT_VERSION = '1.2';
 
 export const DEFAULT_TUNING = {
   player_speed: 6.0,
@@ -9,7 +11,15 @@ export const DEFAULT_TUNING = {
   dash_duration_s: 0.2, // 12 ticks
   dash_cooldown_s: 1.5, // 90 ticks
   carry_capacity: 10,
+  capacity_max: 20,
   lantern_cost: 10,
+  relight_cost: 5,
+  fuel_max: 100,
+  fuel_decay_per_s: 1.0,
+  fuel_per_mote: 10,
+  win_ratio: 0.6,
+  drain_per_s: 5,
+  low_fuel_threshold: 30,
   lantern_count_night1: 5,
   lantern_count_night2: 6,
   lantern_count_night3: 7,
@@ -31,9 +41,9 @@ export const DEFAULT_TUNING = {
   shade_hit_height_diff: 1.5,
   shade_recoil_dist: 2.0,
   shade_recoil_ticks: 60,
-  night1_duration_s: 300,
-  night2_duration_s: 330,
-  night3_duration_s: 360,
+  night1_duration_s: 240,
+  night2_duration_s: 270,
+  night3_duration_s: 300,
   flames: 3,
   invuln_s: 1.5,
   invuln_ticks: 90,
@@ -60,12 +70,14 @@ export const DEFAULT_TUNING = {
   wind_warning_ticks: 120, // 2s before
   wind_speed: 2.0,
 
-  // Scoring
+  // Scoring (Ticket-03 Contract v1.2)
   score: {
-    per_mote: 10,
-    per_lantern: 100,
+    per_mote_deposited: 5,
+    first_light: 100,
+    relight: 40,
     per_stun: 5,
-    per_second_left: 2,
+    per_stun_drain: 15,
+    per_lit_lantern_at_dawn: 50,
     per_flame_left: 50
   }
 };
@@ -83,15 +95,15 @@ export const NIGHT1_MAP = {
   night: 1,
   name: 'Đảo Bến',
   radius: 40.0,
-  duration_s: 300,
+  duration_s: 240,
   start_pos: [0.0, 0.0, 0.0],
   start_facing: [0, 0, 1], // +Z
   lanterns: [
-    { id: 'L1', pos: [0.0, 0.0, 25.0], lit: false, deposited: 0 },
-    { id: 'L2', pos: [23.8, 0.0, 7.7], lit: false, deposited: 0 },
-    { id: 'L3', pos: [14.7, 0.0, -20.2], lit: false, deposited: 0 },
-    { id: 'L4', pos: [-14.7, 0.0, -20.2], lit: false, deposited: 0 },
-    { id: 'L5', pos: [-23.8, 0.0, 7.7], lit: false, deposited: 0 }
+    { id: 'L1', pos: [0.0, 0.0, 25.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L2', pos: [23.8, 0.0, 7.7], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L3', pos: [14.7, 0.0, -20.2], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L4', pos: [-14.7, 0.0, -20.2], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L5', pos: [-23.8, 0.0, 7.7], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 }
   ],
   mote_spawns: [
     // 8 points on r = 12m (every 45 deg)
@@ -118,7 +130,7 @@ export const NIGHT1_MAP = {
 export const NIGHT2_MAP = {
   night: 2,
   name: 'Đảo Cau',
-  duration_s: 330,
+  duration_s: 270,
   start_pos: [0.0, 0.0, 0.0],
   start_facing: [0, 0, 1], // +Z
   islands: [
@@ -132,12 +144,12 @@ export const NIGHT2_MAP = {
     z_max: 2.0
   },
   lanterns: [
-    { id: 'L1', pos: [0.0, 0.0, 20.0], lit: false, deposited: 0 },
-    { id: 'L2', pos: [17.0, 0.0, -10.0], lit: false, deposited: 0 },
-    { id: 'L3', pos: [-17.0, 0.0, -10.0], lit: false, deposited: 0 },
-    { id: 'L4', pos: [70.0, 0.0, 20.0], lit: false, deposited: 0 },
-    { id: 'L5', pos: [87.0, 0.0, -10.0], lit: false, deposited: 0 },
-    { id: 'L6', pos: [53.0, 0.0, -10.0], lit: false, deposited: 0 }
+    { id: 'L1', pos: [0.0, 0.0, 20.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L2', pos: [17.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L3', pos: [-17.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L4', pos: [70.0, 0.0, 20.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L5', pos: [87.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L6', pos: [53.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 }
   ],
   jump_pads: [
     {
@@ -191,7 +203,7 @@ export const NIGHT2_MAP = {
 export const NIGHT3_MAP = {
   night: 3,
   name: 'Đảo Chuông',
-  duration_s: 360,
+  duration_s: 300,
   radius: 45.0,
   start_pos: [0.0, 0.0, 0.0],
   start_facing: [0, 0, 1], // +Z
@@ -223,13 +235,13 @@ export const NIGHT3_MAP = {
     }
   ],
   lanterns: [
-    { id: 'L1', pos: [0.0, 6.0, 6.0], lit: false, deposited: 0 },
-    { id: 'L2', pos: [18.0, 3.0, 10.0], lit: false, deposited: 0 },
-    { id: 'L3', pos: [-18.0, 3.0, 10.0], lit: false, deposited: 0 },
-    { id: 'L4', pos: [35.0, 0.0, -10.0], lit: false, deposited: 0 },
-    { id: 'L5', pos: [-35.0, 0.0, -10.0], lit: false, deposited: 0 },
-    { id: 'L6', pos: [20.0, 0.0, -35.0], lit: false, deposited: 0 },
-    { id: 'L7', pos: [-20.0, 0.0, -35.0], lit: false, deposited: 0 }
+    { id: 'L1', pos: [0.0, 6.0, 6.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L2', pos: [18.0, 3.0, 10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L3', pos: [-18.0, 3.0, 10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L4', pos: [35.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L5', pos: [-35.0, 0.0, -10.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L6', pos: [20.0, 0.0, -35.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 },
+    { id: 'L7', pos: [-20.0, 0.0, -35.0], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 }
   ],
   charms: [
     { id: 'C1', pos: [30.0, 0.0, 25.0], available: true, respawn_ticks: 0 },

@@ -208,6 +208,19 @@ mouseSensSlider.addEventListener('input', (e) => {
   localStorage.setItem('dao_den_long_sens', mouseSensitivity.toString());
 });
 
+// Colorblind Accessible Mode (Ticket-03)
+const colorblindToggle = document.getElementById('colorblind-toggle');
+let isColorblind = localStorage.getItem('dao_den_long_colorblind') === 'true';
+if (colorblindToggle) {
+  colorblindToggle.checked = isColorblind;
+  colorblindToggle.addEventListener('change', (e) => {
+    isColorblind = e.target.checked;
+    localStorage.setItem('dao_den_long_colorblind', isColorblind ? 'true' : 'false');
+    document.body.classList.toggle('colorblind-mode', isColorblind);
+  });
+}
+document.body.classList.toggle('colorblind-mode', isColorblind);
+
 // ==========================================
 // 3. THREE.JS SCENE, CAMERA, RENDERER, LIGHTING
 // ==========================================
@@ -614,12 +627,37 @@ function createOrientLanternPostMesh(id) {
   glowSprite.scale.set(10, 10, 1);
   group.add(glowSprite);
 
+  // 3D Fuel Gauge Bar Billboard (Above lantern at Y = 3.65)
+  const fuelBarGroup = new THREE.Group();
+  fuelBarGroup.position.set(0.95, 3.65, 0);
+
+  const bgGeo = new THREE.PlaneGeometry(1.2, 0.16);
+  const bgMat = new THREE.MeshBasicMaterial({ color: 0x111625, depthTest: false, side: THREE.DoubleSide });
+  const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+  fuelBarGroup.add(bgMesh);
+
+  const fillGeo = new THREE.PlaneGeometry(1.16, 0.12);
+  fillGeo.translate(0.58, 0, 0); // Origin at left edge
+  const fillMat = new THREE.MeshBasicMaterial({ color: 0x38ef7d, depthTest: false, side: THREE.DoubleSide });
+  const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+  fillMesh.position.set(-0.58, 0, 0.01);
+  fuelBarGroup.add(fillMesh);
+
+  fuelBarGroup.visible = false;
+  group.add(fuelBarGroup);
+
   group.userData = {
     id,
+    lanternBody,
+    topCap,
+    bottomCap,
     lanternMat,
     light,
     glowSphere,
     glowSprite,
+    fuelBarGroup,
+    fillMesh,
+    fillMat,
     lit: false,
     lightProgress: 0.0
   };
@@ -1369,8 +1407,10 @@ function createDarkCloudMesh(id) {
   puff3.position.set(0.1, 1.25, 0.1);
   group.add(puff1, puff2, puff3);
 
-  // Glowing Dark Blue Eyes
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  // Glowing Eyes (Default purple/blue or colorblind cyan)
+  const isColorblind = localStorage.getItem('dao_den_long_colorblind') === 'true';
+  const eyeColor = isColorblind ? 0x00b3ff : 0x7a3cff;
+  const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
   const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
   eyeL.position.set(0.24, 0.95, 0.6);
   const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
@@ -1378,11 +1418,11 @@ function createDarkCloudMesh(id) {
   group.add(eyeL, eyeR);
 
   // Point light aura
-  const pl = new THREE.PointLight(0x2563eb, 1.6, 6.0);
+  const pl = new THREE.PointLight(eyeColor, 1.6, 6.0);
   pl.position.set(0, 0.9, 0);
   group.add(pl);
 
-  group.userData = { id, mainPuff, puff1, puff2, puff3, pl };
+  group.userData = { id, mainPuff, puff1, puff2, puff3, eyeMat, cloudMat, pl };
   return group;
 }
 
@@ -1594,13 +1634,12 @@ function initGame(night = 1) {
     ];
   }
 
-  // Create simulation: 3 motes per lantern & dark clouds chase slowly from start
+  // Create simulation
   sim = new Simulation({
     night,
     seed: 12345 + night * 100,
     tuning: {
-      lantern_cost: 3,         // Chỉ cần 3 đom đóm để thắp sáng đèn lồng!
-      shade_speed: 1.85,        // Mây đen dí chậm rãi (1.85 m/s so với Mây 6.0 m/s)
+      shade_speed: 1.85,        // Mây đen di chuyển vừa phải
       shade_detect_radius: 35.0,// Tầm phát hiện vừa phải
       shade_lose_radius: 50.0   // Không bị mất dấu khi Mây lùi lại
     },
@@ -2071,28 +2110,67 @@ function animate(now) {
   const totalLanterns = sim.lanterns.length;
   ambientLight.intensity = 0.22 + 0.38 * (litCount / totalLanterns);
 
-  // Update Traditional Lantern Posts (Radiates glorious warm golden amber light)
+  // Update Traditional Lantern Posts (Ticket-03: Fuel gauges, 1Hz low fuel blink, deflated unlit shape)
   for (const lMesh of lanternMeshes) {
     const lData = sim.lanterns.find(l => l.id === lMesh.userData.id);
     if (!lData) continue;
+
+    const currentFuel = (lData.fuel_sub ?? 0) / 60.0;
+    const isLowFuel = lData.lit && currentFuel < 30.0;
+    // 1 Hz slow blink when fuel < 30
+    const lowFuelBlink = isLowFuel ? (Math.sin(now * 0.002 * Math.PI) > 0 ? 1.0 : 0.15) : 1.0;
 
     if (lData.lit) {
       if (lMesh.userData.lightProgress < 1.0) {
         lMesh.userData.lightProgress = Math.min(1.0, lMesh.userData.lightProgress + delta * 1.6);
       }
+      // Full drum shape
+      if (lMesh.userData.lanternBody) lMesh.userData.lanternBody.scale.set(1.15, 1.0, 1.15);
+      if (lMesh.userData.topCap) lMesh.userData.topCap.position.y = 3.03;
+      if (lMesh.userData.bottomCap) lMesh.userData.bottomCap.position.y = 2.27;
+      lMesh.userData.lanternMat.color.setHex(0x8b1e1e);
+      lMesh.userData.lanternMat.roughness = 0.45;
+
+      // Fuel bar billboard towards camera
+      if (lMesh.userData.fuelBarGroup) {
+        lMesh.userData.fuelBarGroup.visible = true;
+        lMesh.userData.fuelBarGroup.quaternion.copy(camera.quaternion);
+
+        const fuelRatio = Math.max(0.01, Math.min(1.0, currentFuel / 100.0));
+        lMesh.userData.fillMesh.scale.x = fuelRatio;
+
+        if (currentFuel >= 50) {
+          lMesh.userData.fillMat.color.setHex(0x38ef7d); // green
+        } else if (currentFuel >= 30) {
+          lMesh.userData.fillMat.color.setHex(0xf2c14e); // amber
+        } else {
+          lMesh.userData.fillMat.color.setHex(0xff3344); // red
+        }
+        lMesh.userData.fuelBarGroup.scale.setScalar(lowFuelBlink > 0.5 ? 1.0 : 0.6);
+      }
     } else {
       lMesh.userData.lightProgress = 0.0;
+      // Ticket-03: Đèn tắt bị xẹp 20% và giấy có vết rách (weathered dark brown-red)
+      if (lMesh.userData.lanternBody) lMesh.userData.lanternBody.scale.set(1.15, 0.8, 1.15);
+      if (lMesh.userData.topCap) lMesh.userData.topCap.position.y = 2.95;
+      if (lMesh.userData.bottomCap) lMesh.userData.bottomCap.position.y = 2.35;
+      lMesh.userData.lanternMat.color.setHex(0x4a1818);
+      lMesh.userData.lanternMat.roughness = 0.95;
+
+      if (lMesh.userData.fuelBarGroup) {
+        lMesh.userData.fuelBarGroup.visible = false;
+      }
     }
 
     const prog = lMesh.userData.lightProgress;
-    const flicker = 1.0 + Math.sin(now * 0.012 + lMesh.position.x) * 0.08;
+    const flicker = (1.0 + Math.sin(now * 0.012 + lMesh.position.x) * 0.08) * lowFuelBlink;
     lMesh.userData.light.intensity = prog * 4.8 * flicker;
     lMesh.userData.light.color.setHex(0xffaa33); // Warm golden amber!
     if (lMesh.userData.glowSphere) {
       lMesh.userData.glowSphere.material.opacity = prog * 0.3 * flicker;
     }
     lMesh.userData.glowSprite.material.opacity = prog * 0.75 * flicker;
-    lMesh.userData.lanternMat.emissive.setRGB(1.0 * prog, 0.65 * prog, 0.18 * prog);
+    lMesh.userData.lanternMat.emissive.setRGB(1.0 * prog * lowFuelBlink, 0.65 * prog * lowFuelBlink, 0.18 * prog * lowFuelBlink);
   }
 
   // Update Motes Visuals (Zero rectangular boxes, depthWrite: false)
@@ -2153,11 +2231,19 @@ function animate(now) {
     sMesh.userData.puff1.rotation.x += delta * 2.0;
     sMesh.userData.puff2.rotation.z += delta * 1.8;
 
+    const cloudAuraColor = isColorblind ? 0x00b3ff : 0x7a3cff;
+    if (sMesh.userData.eyeMat) sMesh.userData.eyeMat.color.setHex(cloudAuraColor);
+
     if (s.state === 'stunned') {
       sMesh.userData.pl.color.setHex(0x1e293b);
       sMesh.scale.set(0.65, 0.65, 0.65);
+    } else if (s.state === 'drain') {
+      // Sucking fuel visual
+      sMesh.userData.pl.color.setHex(cloudAuraColor);
+      const pulseDrain = 1.05 + Math.sin(now * 0.015) * 0.15;
+      sMesh.scale.set(pulseDrain, pulseDrain * 0.9, pulseDrain);
     } else {
-      sMesh.userData.pl.color.setHex(0x2563eb);
+      sMesh.userData.pl.color.setHex(cloudAuraColor);
       sMesh.scale.set(1.0, 1.0, 1.0);
     }
   }
@@ -2215,19 +2301,37 @@ function animate(now) {
     }
   }
 
-  // Update HUD elements strictly conforming to PDF 2
+  // Update HUD elements strictly conforming to Ticket-03 (Contract v1.2)
   flamesDisplay.textContent = '❤'.repeat(Math.max(0, sim.player.flames));
   const mins = Math.floor(sim.time_left_s / 60);
   const secs = Math.floor(sim.time_left_s % 60);
-  timerDisplay.textContent = `⏳ ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  timerDisplay.classList.toggle('urgent', sim.time_left_s <= 30);
+  const isUrgent = sim.time_left_s <= 30;
+  const timerPrefix = (isColorblind && isUrgent) ? '⚠ ' : '⏳ ';
+  timerDisplay.textContent = `${timerPrefix}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  timerDisplay.classList.toggle('urgent', isUrgent);
 
   lanternsDisplay.textContent = `${litCount} / ${totalLanterns}`;
   scoreDisplay.textContent = `${cumulativeScore + sim.score}`;
 
-  moteSlots.forEach((slot, idx) => {
-    slot.classList.toggle('filled', idx < sim.player.carried);
-  });
+  const invTitle = document.getElementById('inventory-title');
+  if (invTitle) {
+    invTitle.textContent = `Túi Đom Đóm: ${sim.player.carried} / ${sim.player.capacity}`;
+  }
+
+  const slotsContainer = document.getElementById('mote-slots-container');
+  if (slotsContainer) {
+    while (slotsContainer.children.length < sim.player.capacity) {
+      const newSlot = document.createElement('div');
+      newSlot.className = 'mote-slot';
+      slotsContainer.appendChild(newSlot);
+    }
+    while (slotsContainer.children.length > sim.player.capacity) {
+      slotsContainer.removeChild(slotsContainer.lastChild);
+    }
+    Array.from(slotsContainer.children).forEach((slot, idx) => {
+      slot.classList.toggle('filled', idx < sim.player.carried);
+    });
+  }
 
   if (sim.player.dash_cd_ticks > 0) {
     dashCdOverlay.style.display = 'block';
@@ -2245,21 +2349,30 @@ function animate(now) {
     pulseCdOverlay.style.display = 'none';
   }
 
-  // Interaction prompt strictly conforming to PDF 2 (cost 10)
-  let nearestUnlit = null;
+  // Interaction prompt (Ticket-03: Thắp đèn mới, thắp lại hoặc châm dầu)
+  let nearestInteractable = null;
   let minDist = Infinity;
   for (const l of sim.lanterns) {
-    if (l.lit) continue;
+    const canReceive = !l.lit || (l.lit && l.fuel_sub < 6000);
+    if (!canReceive) continue;
     const d = Math.sqrt((sim.player.pos[0] - l.pos[0])**2 + (sim.player.pos[2] - l.pos[2])**2);
     if (d < minDist) {
       minDist = d;
-      nearestUnlit = l;
+      nearestInteractable = l;
     }
   }
 
-  if (nearestUnlit && minDist <= 2.0) {
+  if (nearestInteractable && minDist <= 2.0 && sim.player.carried > 0) {
     interactPrompt.style.display = 'block';
-    interactPrompt.innerHTML = `🏮 Nhấn <b>[E]</b> để Nạp Ánh Sáng (${nearestUnlit.deposited}/${sim.tuning.lantern_cost})`;
+    if (!nearestInteractable.lit) {
+      const cost = nearestInteractable.ever_lit ? sim.tuning.relight_cost : sim.tuning.lantern_cost;
+      const needed = cost - nearestInteractable.deposited;
+      const isRelight = !!nearestInteractable.ever_lit;
+      interactPrompt.innerHTML = `🏮 Nhấn <b>[E]</b> để ${isRelight ? 'Thắp Lại Đèn' : 'Thắp Đèn'} (Cần ${needed} Đom đóm)`;
+    } else {
+      const fuelVal = Math.round(nearestInteractable.fuel_sub / 60.0);
+      interactPrompt.innerHTML = `🏮 Nhấn <b>[E]</b> để Châm Dầu (+10 Dầu/con) [Dầu: ${fuelVal}%]`;
+    }
   } else {
     interactPrompt.style.display = 'none';
   }

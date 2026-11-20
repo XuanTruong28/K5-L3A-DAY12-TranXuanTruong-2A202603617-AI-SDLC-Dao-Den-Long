@@ -15,7 +15,7 @@ test('transformMove calculates correct direction on XZ plane', () => {
   assert.equal(Math.round(dz90), 0);
 });
 
-test('Mote collection and carry capacity (standard tuning XZ <= 1.0m, dY <= 1.5m, cap 10)', () => {
+test('Mote collection and carry capacity (Phase 3: score moved from pickup to deposit/refuel)', () => {
   const scenario = {
     player: { pos: [0, 0, 0], carried: 0, flames: 3 },
     random_motes: false,
@@ -33,28 +33,29 @@ test('Mote collection and carry capacity (standard tuning XZ <= 1.0m, dY <= 1.5m
   const events = sim.step({});
 
   assert.equal(sim.player.carried, 3);
-  assert.equal(sim.score, 30); // 3 * 10
+  // Ticket-03: Thưởng nhặt đom đóm cũ (+10/mote) đã bị THAY THẾ bằng +5/mote khi nạp vào đèn
+  assert.equal(sim.score, 0);
   assert.equal(events.length, 3);
   assert.equal(events[0].name, 'mote_picked');
 });
 
-test('Lantern deposit and win condition (standard tuning cost 10)', () => {
+test('Lantern deposit and dawn win condition (Phase 3: no early win on all lit; win at dawn)', () => {
   const scenario = {
     player: { pos: [0, 0, 24.0], carried: 10, flames: 3 }, // near L1 at [0, 0, 25]
     random_motes: false,
     random_shades: false,
     lanterns: [
       { id: "L1", pos: [0, 0, 25.0], lit: false, deposited: 0 },
-      { id: "L2", pos: [20, 0, 0], lit: true, deposited: 10 },
-      { id: "L3", pos: [15, 0, -20], lit: true, deposited: 10 },
-      { id: "L4", pos: [-15, 0, -20], lit: true, deposited: 10 },
-      { id: "L5", pos: [-20, 0, 0], lit: true, deposited: 10 }
+      { id: "L2", pos: [20, 0, 0], lit: true, deposited: 10, fuel: 100 },
+      { id: "L3", pos: [15, 0, -20], lit: true, deposited: 10, fuel: 100 },
+      { id: "L4", pos: [-15, 0, -20], lit: true, deposited: 10, fuel: 100 },
+      { id: "L5", pos: [-20, 0, 0], lit: true, deposited: 10, fuel: 100 }
     ],
     time_left_s: 200
   };
 
   const sim = new Simulation({ scenario });
-  // Press interact
+  // Press interact to light L1
   const events = sim.step({ interact: true });
 
   const depositEv = events.find(e => e.name === 'deposit');
@@ -64,10 +65,18 @@ test('Lantern deposit and win condition (standard tuning cost 10)', () => {
 
   const litEv = events.find(e => e.name === 'lantern_lit');
   assert.ok(litEv);
+  assert.equal(litEv.data.relight, false);
 
-  const winEv = events.find(e => e.name === 'game_over');
+  // Ticket-03: Không còn thắng sớm khi thắp hết đèn! Game tiếp tục đến bình minh.
+  assert.equal(sim.state, 'playing');
+
+  // Cho thời gian trôi đến bình minh (time_left_s = 0)
+  sim.time_left_s = 1.0 / 60.0;
+  const dawnEvents = sim.step({});
+  const winEv = dawnEvents.find(e => e.name === 'game_over');
   assert.ok(winEv);
   assert.equal(winEv.data.result, 'won');
+  assert.equal(winEv.data.reason, 'dawn_survived');
   assert.equal(sim.state, 'won');
 });
 

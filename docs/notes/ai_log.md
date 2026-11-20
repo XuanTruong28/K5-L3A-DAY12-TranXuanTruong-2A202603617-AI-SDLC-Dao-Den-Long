@@ -39,3 +39,31 @@
 - *Lỗi 1 (Va chạm vách tầng 2 trên Đêm 3):* Ban đầu điều kiện va chạm vách tầng 2 kiểm tra bán kính $r \le 8$ mà không kiểm tra vị trí trước đó ngoài hay trong vách, khiến nhân vật xuất phát tại $(0, 0, 0)$ bị chặn di chuyển. $\rightarrow$ Khắc phục: Phân biệt rõ ranh giới leo vách từ bên ngoài vào (`rCur > 8.0 && nextR <= 8.0`) so với di chuyển bên trong hoặc bước ra ngoài để rơi xuống tầng dưới.
 - *Lỗi 2 (Khởi tạo hướng lướt):* Ban đầu hướng mặt `facing_dir` lưu vector 3D `[0, 0, 1]` dẫn đến trục Z lấy nhầm phần tử Y. $\rightarrow$ Khắc phục: Chuẩn hóa `facing_dir` và `dash_dir` trên mặt phẳng XZ `[dx, dz]`.
 - *Lỗi 3 (Thắp sáng đèn lồng quá nhanh):* Thắp sáng đèn từng chuyển trạng thái ngay lập tức làm mất độ mượt mà. $\rightarrow$ Khắc phục: Thêm biến suy giảm chuyển đổi ánh sáng `lightProgress` tăng dần trong 0.8s kết hợp hiệu ứng chập chờn ngọn lửa $\sin(18t)$ và luồng hạt đom đóm bay lên.
+
+## Phase 3: Ticket-03 Change Request "Đèn cạn dầu" & Test Contract v1.2
+
+### 1. Phân Tích & Kế Hoạch
+- **Đầu vào:** Ticket-03 — Change Request "Đèn cạn dầu", Test Contract v1.2.
+- **Quyết định kiến trúc & Kỹ thuật:**
+  - Chuyển đổi mô hình quản lý đèn từ trạng thái nhị phân (lit/unlit) sang mô hình nhiên liệu liên tục tích hợp:
+    - Sử dụng đơn vị số nguyên `fuel_sub` (60 sub-units = 1 đơn vị dầu) để loại trừ triệt để sai số số thực trong môi trường JavaScript.
+    - Đèn tiêu hao tự nhiên 1.0 đơn vị/giây, Bóng Mực hút 5.0 đơn vị/giây. Đèn hết dầu tự động tắt và phát `lantern_out`.
+    - Đèn đã từng sáng `ever_lit` chỉ tốn 5 đom đóm để thắp lại (`relight_cost = 5`).
+  - Nâng cấp trí tuệ nhân tạo (AI) Bóng Mực:
+    - Thêm trạng thái `drain` khi tiếp cận đèn yếu ($\text{fuel} < 30.0$) trong bán kính $\le 2.0\text{m}$.
+    - Phát sự kiện `fuel_drain` chính xác mỗi 60 tick khi đang hút.
+    - Chuyển tiếp trạng thái chuẩn xác: sang `chase` khi Mây vào vùng 6m, sang `stunned` khi bị Tỏa Sáng, sang `wander` khi đèn tắt hoặc được nạp $\ge 30$.
+  - Thay đổi luật thắng sinh tồn:
+    - Loại bỏ hoàn toàn điều kiện thắng sớm `all_lit`.
+    - Thắng bình minh `dawn_survived` khi Mây còn sống và số đèn sáng $\ge \lceil 0.6 \times \text{tổng đèn}\rceil$.
+  - Sức chứa đom đóm tăng dần `capacity = min(20, 10 + 2 * successful_lights)`.
+  - Hỗ trợ chế độ mù màu (Bảng màu dễ phân biệt) với mắt/viền Bóng Mực `#00B3FF`, cảnh báo `#FFFFFF` + `⚠`, đèn tắt xẹp 20% và đèn yếu nhấp nháy 1 Hz.
+
+### 2. Ước Tính Token & Chi Phí
+- Thực hiện kiểm thử toàn diện ngay từ đầu (`tests/phase3_features.test.js`) với 27 test tự động chạy chỉ trong ~0.7s.
+- Ước tính token sử dụng Phase 3: ~35,000 - 45,000 tokens.
+
+### 3. Ghi Nhận Lỗi & Cách Khắc Phục
+- *Lỗi 1 (Sai số tích lũy số thực khi trừ dầu):* Nếu dùng `lantern.fuel -= 1.0 / 60.0`, phép cộng/trừ số thực trong IEEE 754 sẽ làm lệch `fuel` sau hàng ngàn tick. $\rightarrow$ Khắc phục: Dùng `fuel_sub` nguyên (6000 cho 100 fuel), trừ 1 mỗi tick, chỉ làm tròn khi xuất snapshot (`round1(fuel_sub / 60)`).
+- *Lỗi 2 (Chu kỳ phát sự kiện `fuel_drain`):* Khi quái chuyển sang `drain`, nếu không reset `drain_ticks = 0` thì sự kiện `fuel_drain` sẽ bị lệch nhịp 60 tick. $\rightarrow$ Khắc phục: Khởi tạo `shade.drain_ticks = 0` khi vào `drain` và tăng đều mỗi tick, phát sự kiện khi `shade.drain_ticks % 60 === 0`.
+- *Lỗi 3 (Đèn đầy dầu vẫn bị chọn tương tác):* Luật yêu cầu đèn đầy dầu không được chọn khi tương tác và không tốn đom đóm. $\rightarrow$ Khắc phục: Lọc danh sách ứng viên chỉ lấy đèn chưa sáng hoặc đèn sáng có `fuel_sub < 6000`.
