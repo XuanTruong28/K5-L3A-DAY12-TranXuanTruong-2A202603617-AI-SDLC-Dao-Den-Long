@@ -261,17 +261,19 @@ function createCleanGlowTexture(colorHex = '#ffe58a') {
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, 128, 128);
 
-  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 60);
   grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.25, colorHex);
-  grad.addColorStop(0.65, 'rgba(255, 120, 40, 0.25)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.2, colorHex);
+  grad.addColorStop(0.55, 'rgba(255, 170, 50, 0.22)');
+  grad.addColorStop(0.85, 'rgba(255, 120, 30, 0.04)');
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(64, 64, 64, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(0, 0, 128, 128);
 
   const tex = new THREE.CanvasTexture(c);
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   return tex;
 }
@@ -282,6 +284,7 @@ const moonHalo = new THREE.Sprite(new THREE.SpriteMaterial({
   transparent: true,
   opacity: 0.8,
   depthWrite: false,
+  fog: false,
   blending: THREE.AdditiveBlending
 }));
 moonHalo.scale.set(42, 42, 1);
@@ -484,6 +487,7 @@ function createMayCharacter() {
     transparent: true,
     opacity: 0.7,
     depthWrite: false,
+    fog: false,
     blending: THREE.AdditiveBlending
   }));
   heldGlow.scale.set(1.2, 1.2, 1);
@@ -603,6 +607,7 @@ function createOrientLanternPostMesh(id) {
     transparent: true,
     opacity: 0.0,
     depthWrite: false,
+    fog: false,
     blending: THREE.AdditiveBlending
   }));
   glowSprite.position.set(0.95, 2.65, 0);
@@ -753,6 +758,7 @@ function buildJumpPadMesh(x, y, z) {
     transparent: true,
     opacity: 0.75,
     depthWrite: false,
+    fog: false,
     blending: THREE.AdditiveBlending
   }));
   glow.position.y = 0.5;
@@ -861,28 +867,63 @@ function buildIslandTerrain(night) {
     diskMesh.receiveShadow = true;
     islandMeshGroup.add(diskMesh);
 
-    // Stone paths to the 5 lanterns
-    const pathMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.95 });
-    const pathSpokes = [
-      [0, 25], [23.8, 7.7], [14.7, -20.2], [-14.7, -20.2], [-23.8, 7.7]
-    ];
-    pathSpokes.forEach(([lx, lz]) => {
-      const len = Math.sqrt(lx * lx + lz * lz);
-      const pMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, len), pathMat);
-      pMesh.position.set(lx / 2, 0.02, lz / 2);
-      pMesh.rotation.y = -Math.atan2(lx, lz);
-      pMesh.receiveShadow = true;
-      islandMeshGroup.add(pMesh);
+    // ----------------- 5 ĐƯỜNG LÁT ĐÁ TRÒN DẪN ĐƯỜNG ĐẾN ĐÈN LỒNG (CIRCULAR STEPPING STONES) -----------------
+    const stoneGeo = new THREE.CylinderGeometry(0.55, 0.62, 0.08, 16);
+    const stoneMat = new THREE.MeshStandardMaterial({
+      color: 0x546274, // Mossy river slate stone
+      roughness: 0.88,
+      flatShading: true
     });
+
+    const lanternTargets = [
+      [0, 25.0], [23.8, 7.7], [14.7, -20.2], [-14.7, -20.2], [-23.8, 7.7]
+    ];
+
+    lanternTargets.forEach(([lx, lz]) => {
+      const totalDist = Math.hypot(lx, lz);
+      const dirX = lx / totalDist;
+      const dirZ = lz / totalDist;
+
+      // Đặt các viên đá tròn cách nhau 1.4m dọc theo 5 hướng dẫn thẳng đến chân cột đèn
+      for (let dist = 2.0; dist <= totalDist - 1.2; dist += 1.4) {
+        const stone = new THREE.Mesh(stoneGeo, stoneMat);
+        const lateralJitter = Math.sin(dist * 7) * 0.08;
+        const sx = dirX * dist + (-dirZ) * lateralJitter;
+        const sz = dirZ * dist + dirX * lateralJitter;
+        stone.position.set(sx, 0.04, sz);
+        const scaleJitter = 0.88 + Math.sin(dist * 3.7) * 0.18;
+        stone.scale.set(scaleJitter, 1.0, scaleJitter);
+        stone.rotation.y = dist * 1.5;
+        stone.receiveShadow = true;
+        islandMeshGroup.add(stone);
+      }
+    });
+
+    // Sân đá tròn tại trung tâm xuất phát (0, 0)
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const stone = new THREE.Mesh(stoneGeo, stoneMat);
+      stone.position.set(Math.cos(ang) * 1.5, 0.04, Math.sin(ang) * 1.5);
+      stone.scale.set(1.05, 1.0, 1.05);
+      stone.receiveShadow = true;
+      islandMeshGroup.add(stone);
+    }
 
     // Ancient Moss-Covered Stone Altar (from Image 2)
     natureGroup.add(buildAncientDolmenAltar(-6.0, 8.0, 0));
 
-    // Scatter trees across interior
+    // Cây cối đặt ở các khoảng trống GIỮA các con đường, TUYỆT ĐỐI KHÔNG che khuất tầm nhìn 5 ngọn đèn lồng!
     const treeCoords = [
-      [6.0, 10.0], [-12.0, -10.0], [14.0, -8.0], [-8.0, 18.0], [16.0, 14.0],
-      [-16.0, 6.0], [5.0, -16.0], [-18.0, -16.0], [20.0, -16.0], [3.0, 22.0],
-      [-22.0, 16.0], [22.0, 4.0], [-4.0, 28.0], [26.0, -10.0], [-26.0, -6.0]
+      // Khoảng giữa L2 (18°) và L1 (90°):
+      [10.0, 14.0], [15.0, 20.0], [7.0, 9.0],
+      // Khoảng giữa L1 (90°) và L5 (162°):
+      [-10.0, 14.0], [-16.0, 21.0], [-18.0, 12.0],
+      // Khoảng giữa L5 (162°) và L4 (234°):
+      [-20.0, -8.0], [-25.0, -10.0], [-14.0, -5.0],
+      // Khoảng giữa L4 (234°) và L3 (306°) - Phía Nam:
+      [0.0, -18.0], [0.0, -28.0], [-5.0, -12.0], [5.0, -12.0],
+      // Khoảng giữa L3 (306°) và L2 (18°):
+      [18.0, -6.0], [25.0, -8.0], [12.0, -4.0]
     ];
     treeCoords.forEach(([tx, tz]) => {
       natureGroup.add(buildTropicalTree(tx, tz, 0));
@@ -1106,6 +1147,7 @@ function createDrifterMesh(id) {
     transparent: true,
     opacity: 0.8,
     depthWrite: false,
+    fog: false,
     blending: THREE.AdditiveBlending
   }));
   sprite.position.y = 0.8;
@@ -1145,6 +1187,7 @@ function createCharmMesh(id) {
     transparent: true,
     opacity: 0.75,
     depthWrite: false,
+    fog: false,
     blending: THREE.AdditiveBlending
   }));
   glow.position.y = 0.7;
@@ -1265,20 +1308,17 @@ function initGame(night = 1) {
 
   const clusterMotes = generateClusteredMotes(night);
 
-  // Initial chasing dark clouds (Dí Mây ngay từ đầu nhưng tốc độ chậm vừa phải)
+  // Initial chasing dark clouds (Chỉ 1 đám mây đen dí chậm từ đầu, tối đa 2 mây đen toàn bản đồ)
   let initialShades = [
-    { id: 'S1', pos: [12.0, 0, 9.0], state: 'chase' },
-    { id: 'S2', pos: [-11.0, 0, -11.0], state: 'chase' }
+    { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
   ];
   if (night === 2) {
     initialShades = [
-      { id: 'S1', pos: [12.0, 0, 8.0], state: 'chase' },
-      { id: 'S2', pos: [70.0, 0, 10.0], state: 'chase' }
+      { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
     ];
   } else if (night === 3) {
     initialShades = [
-      { id: 'S1', pos: [14.0, 0, 8.0], state: 'chase' },
-      { id: 'S2', pos: [-12.0, 0, -12.0], state: 'chase' }
+      { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
     ];
   }
 
@@ -1288,15 +1328,23 @@ function initGame(night = 1) {
     seed: 12345 + night * 100,
     tuning: {
       lantern_cost: 3,         // Chỉ cần 3 đom đóm để thắp sáng đèn lồng!
-      shade_speed: 2.2,         // Mây đen dí chậm từ đầu (2.2 m/s so với Mây 6.0 m/s)
-      shade_detect_radius: 40.0,// Tầm phát hiện rộng để luôn bám theo
-      shade_lose_radius: 55.0   // Không bị mất dấu khi Mây lùi lại
+      shade_speed: 1.85,        // Mây đen dí chậm rãi (1.85 m/s so với Mây 6.0 m/s)
+      shade_detect_radius: 35.0,// Tầm phát hiện vừa phải
+      shade_lose_radius: 50.0   // Không bị mất dấu khi Mây lùi lại
     },
     scenario: {
       motes: clusterMotes,
       shades: initialShades
     }
   });
+
+  // Điều chỉnh lịch sinh mây đen để không làm ngợp người chơi (tối đa 2 mây đen trên đảo)
+  if (sim.map.shade_schedule) {
+    sim.map.shade_schedule.first_count = 0;       // Không sinh ồ ạt lúc 5 giây
+    sim.map.shade_schedule.max_shades = 2;        // Tối đa chỉ 2 đám mây đen
+    sim.map.shade_schedule.interval_ticks = 1800; // 30s mới xem xét thêm nếu thiếu
+    sim.map.shade_schedule.speed = 1.85;          // Tốc độ di chuyển chậm rãi
+  }
 
   // Assign cluster spawn points for periodic respawn
   sim.map.mote_spawns = clusterMotes.map(m => [...m.pos]);
@@ -1794,6 +1842,7 @@ function animate(now) {
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
+        fog: false,
         blending: THREE.AdditiveBlending
       }));
       sSprite.scale.set(1.4, 1.4, 1);
