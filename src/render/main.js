@@ -642,22 +642,53 @@ function triggerPulseVisual(pos) {
 }
 
 // ==========================================
-// 9. CONTROLS & CAMERA SMOOTHING (LERP)
+// 9. CONTROLS, JUMP PHYSICS & CAMERA ORBIT
 // ==========================================
 const keys = {};
 let camYaw = 0;
 let isMouseDown = false;
 let prevMouseX = 0;
 
+// Jump physics
+let playerVy = 0;
+let playerVisualY = 0;
+const GRAVITY = 22.0;
+const JUMP_SPEED = 7.8;
+let isGrounded = true;
+
+// Action buffers to guarantee reliable 1-tick triggers without misses
+let wantsInteract = false;
+let wantsPulse = false;
+
 window.addEventListener('keydown', (e) => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === 'r') {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+
+  if (k === 'r') {
     restartGame();
+  } else if (k === 'e') {
+    wantsInteract = true;
+  } else if (k === 'f' || k === 'q') {
+    wantsPulse = true;
+  } else if (e.key === ' ' || k === 'space') {
+    if (isGrounded) {
+      playerVy = JUMP_SPEED;
+      isGrounded = false;
+    }
   }
 });
 
 window.addEventListener('keyup', (e) => {
-  keys[e.key.toLowerCase()] = false;
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  if (e.key === ' ' || k === 'space') {
+    keys[' '] = false;
+  }
+});
+
+window.addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  isMouseDown = false;
 });
 
 window.addEventListener('mousedown', (e) => {
@@ -673,6 +704,7 @@ window.addEventListener('mouseup', (e) => {
 
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 
+// Horizontal-only camera orbit around character (No vertical flipping over head)
 window.addEventListener('mousemove', (e) => {
   if (isMouseDown) {
     const deltaX = e.clientX - prevMouseX;
@@ -684,6 +716,11 @@ window.addEventListener('mousemove', (e) => {
 function restartGame() {
   sim = new Simulation({ seed: Date.now() });
   dialogOverlay.style.display = 'none';
+  playerVy = 0;
+  playerVisualY = 0;
+  isGrounded = true;
+  wantsInteract = false;
+  wantsPulse = false;
 
   for (const [, data] of moteMeshes) {
     scene.remove(data.group);
@@ -700,7 +737,7 @@ function restartGame() {
 btnReplay.addEventListener('click', restartGame);
 
 // Smooth Camera Target Vectors
-const cameraCurrentPos = new THREE.Vector3(0, 6, -9);
+const cameraCurrentPos = new THREE.Vector3(0, 3, -8);
 const cameraTargetLook = new THREE.Vector3(0, 1.2, 0);
 
 // Update HUD
@@ -735,13 +772,13 @@ function updateHUD() {
     dialogOverlay.style.display = 'flex';
   }
 
-  // Interactive Prompt when near any lantern
+  // Interactive Prompt when strictly within interact_radius
   let nearLantern = null;
   for (const l of sim.lanterns) {
     const dx = sim.player.pos[0] - l.pos[0];
     const dz = sim.player.pos[2] - l.pos[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist <= sim.tuning.interact_radius + 0.6) {
+    if (dist <= sim.tuning.interact_radius) {
       nearLantern = l;
       break;
     }
@@ -753,10 +790,11 @@ function updateHUD() {
       interactPrompt.innerHTML = `🏮 <b>${nearLantern.id}</b> đã thắp sáng rực rỡ! ✨ (Vùng an toàn)`;
       interactPrompt.style.borderColor = '#06d6a0';
     } else if (sim.player.carried > 0) {
-      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id}:</b> Bấm <kbd style="background:#ffd166;color:#111;padding:2px 6px;border-radius:4px;font-weight:bold;">E</kbd> hoặc <kbd style="background:#ffd166;color:#111;padding:2px 6px;border-radius:4px;font-weight:bold;">Space</kbd> để nạp ánh sáng! (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost} đom đóm)`;
+      const needed = sim.tuning.lantern_cost - nearLantern.deposited;
+      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id}:</b> Bấm phím <kbd style="background:#ffd166;color:#111;padding:2px 8px;border-radius:4px;font-weight:bold;font-size:17px;">E</kbd> để nạp ánh sáng! (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost} đom đóm, cần thêm ${needed})`;
       interactPrompt.style.borderColor = '#ffd166';
     } else {
-      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id} (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost}):</b> Cần đom đóm để thắp sáng! Hãy đi gom đom đóm ✨ trước!`;
+      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id} (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost}):</b> Cần ${sim.tuning.lantern_cost - nearLantern.deposited} đom đóm nữa. Hãy đi gom đom đóm ✨ trước!`;
       interactPrompt.style.borderColor = '#ff6b6b';
     }
   } else {
@@ -782,6 +820,17 @@ function animate() {
   accumTime += dt;
   totalElapsed += dt;
 
+  // Jump physics integration
+  if (!isGrounded) {
+    playerVy -= GRAVITY * dt;
+    playerVisualY += playerVy * dt;
+    if (playerVisualY <= 0) {
+      playerVisualY = 0;
+      playerVy = 0;
+      isGrounded = true;
+    }
+  }
+
   while (accumTime >= fixedDelta) {
     accumTime -= fixedDelta;
 
@@ -795,8 +844,10 @@ function animate() {
 
     isMoving = mx !== 0 || mz !== 0;
 
-    const interact = !!(keys['e'] || keys[' ']);
-    const pulse = !!(keys['f'] || keys['q']);
+    const currentInteract = wantsInteract;
+    const currentPulse = wantsPulse;
+    wantsInteract = false;
+    wantsPulse = false;
 
     const yawDeg = (camYaw * 180) / Math.PI;
 
@@ -808,8 +859,9 @@ function animate() {
     const events = sim.step({
       move: [mx, mz],
       cam_yaw_deg: yawDeg,
-      interact,
-      pulse
+      interact: currentInteract,
+      pulse: currentPulse,
+      jump: !isGrounded
     });
 
     for (const ev of events) {
@@ -819,18 +871,22 @@ function animate() {
     }
   }
 
-  // A. Player Bobbing Walk Animation & Cape Swish
+  // A. Player Bobbing Walk Animation & Cape Swish (Stops immediately on key release!)
   let bobY = 0;
-  if (isMoving) {
-    bobY = Math.abs(Math.sin(totalElapsed * 12.0)) * 0.12;
-    capeMesh.rotation.x = 0.45 + Math.sin(totalElapsed * 12.0) * 0.15;
-    hatMesh.rotation.z = Math.sin(totalElapsed * 6.0) * 0.06;
+  if (!isGrounded) {
+    capeMesh.rotation.x = 0.55;
+    hatMesh.rotation.z = 0;
+  } else if (isMoving) {
+    bobY = Math.abs(Math.sin(totalElapsed * 14.0)) * 0.12;
+    capeMesh.rotation.x = 0.45 + Math.sin(totalElapsed * 14.0) * 0.12;
+    hatMesh.rotation.z = Math.sin(totalElapsed * 7.0) * 0.05;
   } else {
-    bobY = Math.sin(totalElapsed * 2.5) * 0.03;
-    capeMesh.rotation.x = 0.22 + Math.sin(totalElapsed * 2.0) * 0.04;
+    // Idle stance - stops immediately
+    bobY = Math.sin(totalElapsed * 2.0) * 0.02;
+    capeMesh.rotation.x = 0.22;
     hatMesh.rotation.z = 0;
   }
-  playerGroup.position.set(sim.player.pos[0], sim.player.pos[1] + bobY, sim.player.pos[2]);
+  playerGroup.position.set(sim.player.pos[0], sim.player.pos[1] + playerVisualY + bobY, sim.player.pos[2]);
 
   // B. Pulse FX Animation
   if (pulseAnim > 0) {
@@ -889,15 +945,15 @@ function animate() {
   syncShades(totalElapsed);
   updateHUD();
 
-  // E. Smooth Camera Lerp Follow (Eliminates harsh snapping)
-  const camDist = 9.0;
-  const camHeight = 5.8;
+  // E. Smooth Camera Lerp Follow (Horizontal eye-level orbit around Mây)
+  const camDist = 7.6;
+  const camHeight = 2.4; // Eye-level perspective, prevents overhead flipping
   const desiredCamX = sim.player.pos[0] - Math.sin(camYaw) * camDist;
   const desiredCamZ = sim.player.pos[2] - Math.cos(camYaw) * camDist;
-  const desiredCamY = sim.player.pos[1] + camHeight;
+  const desiredCamY = sim.player.pos[1] + playerVisualY + camHeight;
 
-  cameraCurrentPos.lerp(new THREE.Vector3(desiredCamX, desiredCamY, desiredCamZ), 0.09);
-  cameraTargetLook.lerp(new THREE.Vector3(sim.player.pos[0], sim.player.pos[1] + 1.25, sim.player.pos[2]), 0.12);
+  cameraCurrentPos.lerp(new THREE.Vector3(desiredCamX, desiredCamY, desiredCamZ), 0.12);
+  cameraTargetLook.lerp(new THREE.Vector3(sim.player.pos[0], sim.player.pos[1] + playerVisualY + 1.2, sim.player.pos[2]), 0.14);
 
   camera.position.copy(cameraCurrentPos);
   camera.lookAt(cameraTargetLook);
