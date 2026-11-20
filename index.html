@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đảo Đèn Lồng — Đêm 1</title>
+  <title>Đảo Đèn Lồng — Three Nights Journey</title>
   <style>
     * {
       box-sizing: border-box;
@@ -12,182 +12,466 @@
       user-select: none;
     }
     body {
-      background-color: #0b0c16;
-      color: #f3eedd;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0e1430;
+      color: #f5f1e6;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       overflow: hidden;
+      width: 100vw;
+      height: 100vh;
     }
     #game-canvas {
       width: 100vw;
       height: 100vh;
       display: block;
     }
-    #hud {
+
+    /* TOP HUD BAR */
+    #top-hud {
       position: absolute;
       top: 16px;
       left: 16px;
-      z-index: 10;
+      right: 16px;
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
       pointer-events: none;
+      z-index: 10;
     }
-    .hud-card {
-      background: rgba(14, 18, 32, 0.75);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 215, 0, 0.25);
-      border-radius: 10px;
-      padding: 10px 16px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-    }
-    .hud-row {
+    .hud-glass {
+      background: rgba(14, 20, 48, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(242, 193, 78, 0.3);
+      border-radius: 14px;
+      padding: 10px 18px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      color: #f5f1e6;
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 16px;
-      font-weight: 500;
     }
     .hud-flames {
-      color: #ff6b6b;
-      font-size: 20px;
-      letter-spacing: 2px;
-    }
-    .hud-motes {
-      color: #ffd166;
-    }
-    .hud-lanterns {
-      color: #ff9f1c;
-    }
-    .hud-score {
-      color: #06d6a0;
-      font-weight: 700;
+      font-size: 24px;
+      color: #ff5a5f;
+      letter-spacing: 4px;
+      filter: drop-shadow(0 0 8px rgba(255, 90, 95, 0.6));
     }
     .hud-timer {
-      color: #118ab2;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #8fa3b8;
     }
-    #controls-hint {
-      position: absolute;
-      bottom: 16px;
-      left: 16px;
-      z-index: 10;
+    .hud-timer.urgent {
+      color: #ff5a5f;
+      animation: pulse-urgent 0.8s infinite alternate;
+    }
+    @keyframes pulse-urgent {
+      from { transform: scale(1); filter: drop-shadow(0 0 2px #ff5a5f); }
+      to { transform: scale(1.1); filter: drop-shadow(0 0 12px #ff5a5f); }
+    }
+    .hud-night-badge {
       font-size: 13px;
-      color: rgba(240, 240, 255, 0.7);
-      background: rgba(14, 18, 32, 0.7);
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      pointer-events: none;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #f2c14e;
+      background: rgba(242, 193, 78, 0.15);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(242, 193, 78, 0.4);
     }
-    #dialog-overlay {
+    .hud-stat {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hud-lanterns-stat { color: #ffb347; }
+    .hud-score-stat { color: #f2c14e; }
+
+    /* BOTTOM CENTER INVENTORY (10 SLOTS) */
+    #bottom-inventory {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .inventory-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(245, 241, 230, 0.7);
+    }
+    .mote-slots {
+      display: flex;
+      gap: 6px;
+      background: rgba(14, 20, 48, 0.75);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 24px;
+      border: 1px solid rgba(242, 193, 78, 0.25);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+    .mote-slot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(245, 241, 230, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .mote-slot.filled {
+      background: radial-gradient(circle at 35% 35%, #fff6c2, #ffe58a);
+      border-color: #f2c14e;
+      box-shadow: 0 0 10px rgba(255, 246, 194, 0.8), 0 0 20px rgba(255, 229, 138, 0.5);
+      transform: scale(1.12);
+    }
+
+    /* BOTTOM RIGHT SKILL COOLDOWNS */
+    #skills-hud {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      gap: 16px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .skill-card {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(14, 20, 48, 0.8);
+      border: 2px solid rgba(242, 193, 78, 0.35);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(8px);
+    }
+    .skill-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+    .skill-key {
+      font-size: 10px;
+      font-weight: 700;
+      color: #f2c14e;
+      margin-top: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(242, 193, 78, 0.4);
+    }
+    .skill-overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(8, 10, 20, 0.85);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%);
+      display: none;
+    }
+
+    /* CONTROLS HINT */
+    #controls-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      font-size: 12px;
+      color: rgba(245, 241, 230, 0.65);
+      background: rgba(14, 20, 48, 0.6);
+      backdrop-filter: blur(6px);
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+      z-index: 10;
+      line-height: 1.6;
+    }
+    #controls-hint kbd {
+      background: rgba(242, 193, 78, 0.2);
+      color: #f2c14e;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: 1px solid rgba(242, 193, 78, 0.35);
+    }
+
+    /* FLOATING INTERACTION PROMPT */
+    #interact-prompt {
+      position: absolute;
+      bottom: 95px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20, 28, 60, 0.92);
+      border: 2px solid #f2c14e;
+      color: #fff;
+      padding: 10px 26px;
+      border-radius: 24px;
+      font-size: 16px;
+      font-weight: 600;
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 4px 25px rgba(242, 193, 78, 0.5);
+      z-index: 20;
+      text-align: center;
+      animation: float-prompt 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes float-prompt {
+      from { transform: translateX(-50%) translateY(0); }
+      to { transform: translateX(-50%) translateY(-6px); }
+    }
+
+    /* OFF-SCREEN LANTERN ARROW */
+    #offscreen-indicator {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+      z-index: 15;
+    }
+    .indicator-arrow {
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-bottom: 22px solid #ffb347;
+      filter: drop-shadow(0 0 8px rgba(255, 179, 71, 0.8));
+    }
+
+    /* OVERLAYS: PAUSE & GAME OVER */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 14, 34, 0.85);
+      backdrop-filter: blur(10px);
       display: none;
       justify-content: center;
       align-items: center;
       z-index: 100;
-      backdrop-filter: blur(6px);
     }
-    #dialog-box {
-      background: #151928;
-      border: 2px solid #ffbe0b;
-      border-radius: 14px;
-      padding: 32px 48px;
+    .modal-box {
+      background: linear-gradient(145deg, #161e3d, #0e142f);
+      border: 2px solid #f2c14e;
+      border-radius: 18px;
+      padding: 36px 48px;
       text-align: center;
-      max-width: 480px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 30px rgba(242, 193, 78, 0.2);
     }
-    #dialog-title {
-      font-size: 28px;
+    .modal-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f2c14e;
       margin-bottom: 12px;
-      color: #ffbe0b;
+      letter-spacing: 1px;
     }
-    #dialog-msg {
+    .modal-subtitle {
+      font-size: 15px;
+      color: #8fa3b8;
+      margin-bottom: 26px;
+      line-height: 1.6;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #f2c14e, #e2a832);
+      color: #0e1430;
+      font-weight: 700;
       font-size: 16px;
-      margin-bottom: 24px;
-      color: #e0e2ec;
-      line-height: 1.5;
-    }
-    .btn-restart {
-      background: linear-gradient(135deg, #ff9f1c, #ffbe0b);
-      color: #151928;
-      font-weight: bold;
       border: none;
-      padding: 12px 28px;
-      border-radius: 8px;
-      font-size: 16px;
+      padding: 13px 26px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: transform 0.15s, opacity 0.15s;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(242, 193, 78, 0.3);
     }
-    .btn-restart:hover {
-      opacity: 0.9;
-      transform: scale(1.04);
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(242, 193, 78, 0.5);
+    }
+    .btn.btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f5f1e6;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+    .btn.btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(242, 193, 78, 0.5);
+    }
+
+    /* LEVEL SELECTOR IN PAUSE MENU */
+    .level-select-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .level-btn {
+      flex: 1;
+      padding: 10px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(242, 193, 78, 0.25);
+      border-radius: 8px;
+      color: #f5f1e6;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .level-btn.active, .level-btn:hover {
+      background: rgba(242, 193, 78, 0.2);
+      border-color: #f2c14e;
+      color: #f2c14e;
+    }
+
+    /* SETTINGS ROW */
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #8fa3b8;
+    }
+    .settings-row input[type="range"] {
+      width: 150px;
+      accent-color: #f2c14e;
     }
   </style>
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
 
-  <div id="hud">
-    <div class="hud-card">
-      <div class="hud-row">
-        <span>Mây (Máu):</span>
-        <span id="flames-display" class="hud-flames">❤❤❤</span>
-      </div>
+  <!-- TOP HUD -->
+  <div id="top-hud">
+    <div class="hud-glass">
+      <span class="hud-night-badge" id="night-badge">Đêm 1 · Đảo Bến</span>
+      <span class="hud-flames" id="flames-display">❤❤❤</span>
     </div>
-    <div class="hud-card">
-      <div class="hud-row">
-        <span>Đom đóm mang theo:</span>
-        <span id="motes-display" class="hud-motes">✨ 0 / 5</span>
-      </div>
-      <div class="hud-row" style="margin-top: 6px;">
-        <span>Đèn lồng thắp sáng:</span>
-        <span id="lanterns-display" class="hud-lanterns">🏮 0 / 5</span>
-      </div>
+
+    <div class="hud-glass">
+      <span class="hud-timer" id="timer-display">⏳ 05:00</span>
     </div>
-    <div class="hud-card">
-      <div class="hud-row">
-        <span>Thời gian còn:</span>
-        <span id="timer-display" class="hud-timer">⏳ 05:00</span>
+
+    <div class="hud-glass">
+      <div class="hud-stat hud-lanterns-stat">
+        <span>🏮</span>
+        <span id="lanterns-display">0 / 5</span>
       </div>
-      <div class="hud-row" style="margin-top: 6px;">
-        <span>Điểm số:</span>
-        <span id="score-display" class="hud-score">🏆 0</span>
+      <div class="hud-stat hud-score-stat" style="margin-left: 10px;">
+        <span>🏆</span>
+        <span id="score-display">0</span>
       </div>
     </div>
   </div>
 
+  <!-- BOTTOM INVENTORY -->
+  <div id="bottom-inventory">
+    <div class="inventory-title">Túi Đom Đóm (Sức Chứa 10)</div>
+    <div class="mote-slots" id="mote-slots-container">
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+      <div class="mote-slot"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM RIGHT SKILL COOLDOWNS -->
+  <div id="skills-hud">
+    <div class="skill-card" id="skill-dash">
+      <div class="skill-icon">⚡</div>
+      <div class="skill-key">SHIFT</div>
+      <div class="skill-overlay" id="dash-cd-overlay"></div>
+    </div>
+    <div class="skill-card" id="skill-pulse">
+      <div class="skill-icon">✨</div>
+      <div class="skill-key">F / Q</div>
+      <div class="skill-overlay" id="pulse-cd-overlay"></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS HINT -->
   <div id="controls-hint">
-    🎮 <b>Điều khiển:</b> [W, A, S, D] Di chuyển &nbsp;|&nbsp; [Space] Nhảy &nbsp;|&nbsp; [E] Thắp Đèn Lồng &nbsp;|&nbsp; [F / Q] Tỏa Sáng (Pulse) &nbsp;|&nbsp; Kéo chuột để xoay Camera quanh nhân vật
+    🎮 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển &nbsp;|&nbsp; <kbd>Space</kbd> Nhảy &nbsp;|&nbsp; <kbd>Shift</kbd> Lướt (Dash)<br>
+    🏮 <kbd>E</kbd> Thắp Đèn &nbsp;|&nbsp; ✨ <kbd>F</kbd>/<kbd>Q</kbd> Tỏa Sáng (3 Đom đóm) &nbsp;|&nbsp; <kbd>Esc</kbd>/<kbd>P</kbd> Tạm Dừng
   </div>
 
-  <div id="interact-prompt" style="
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(20, 24, 40, 0.9);
-    border: 2px solid #ffd166;
-    color: #fff;
-    padding: 10px 24px;
-    border-radius: 20px;
-    font-size: 16px;
-    font-weight: 600;
-    display: none;
-    pointer-events: none;
-    box-shadow: 0 4px 20px rgba(255, 209, 102, 0.4);
-    z-index: 20;
-    text-align: center;
-  "></div>
+  <!-- FLOATING PROMPT -->
+  <div id="interact-prompt"></div>
 
-  <div id="dialog-overlay">
-    <div id="dialog-box">
-      <h2 id="dialog-title">Chiến Thắng!</h2>
-      <p id="dialog-msg">Mây đã thắp sáng toàn bộ 5 Đèn Lồng Lớn!</p>
-      <button id="btn-replay" class="btn-restart">Chơi Lại (R)</button>
+  <!-- OFF-SCREEN LANTERN ARROW -->
+  <div id="offscreen-indicator">
+    <div class="indicator-arrow"></div>
+  </div>
+
+  <!-- PAUSE MENU MODAL -->
+  <div id="pause-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title">TẠM DỪNG</div>
+      <div class="modal-subtitle">Hành trình Đảo Đèn Lồng đang tạm dừng</div>
+
+      <div class="level-select-row">
+        <button class="level-btn" data-night="1">Đêm 1<br><small>Đảo Bến</small></button>
+        <button class="level-btn" data-night="2">Đêm 2<br><small>Đảo Cau</small></button>
+        <button class="level-btn" data-night="3">Đêm 3<br><small>Đảo Chuông</small></button>
+      </div>
+
+      <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; margin-bottom: 20px;">
+        <div class="settings-row">
+          <span>🔊 Âm lượng:</span>
+          <input type="range" id="volume-slider" min="0" max="100" value="80">
+        </div>
+        <div class="settings-row">
+          <span>🖱 Độ nhạy chuột:</span>
+          <input type="range" id="mouse-sens-slider" min="20" max="200" value="100">
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="btn-resume" class="btn">Tiếp Tục Chơi (Esc / P)</button>
+        <button id="btn-restart-night" class="btn btn-secondary">Chơi Lại Đêm Này (R)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER / VICTORY MODAL -->
+  <div id="gameover-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title" id="go-title">CHIẾN THẮNG!</div>
+      <div class="modal-subtitle" id="go-subtitle">Mây đã thắp sáng các ngọn tháp đèn lồng cổ kính!</div>
+      <div class="btn-group">
+        <button id="btn-next-night" class="btn">Đêm Kế Tiếp</button>
+        <button id="btn-retry-go" class="btn btn-secondary">Chơi Lại</button>
+      </div>
     </div>
   </div>
 

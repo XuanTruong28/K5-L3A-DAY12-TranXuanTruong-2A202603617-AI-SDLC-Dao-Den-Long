@@ -6,7 +6,7 @@ import { Simulation } from '../core/simulation.js';
 
 function printUsageAndExit(code = 1, msg = '') {
   if (msg) console.error(`Error: ${msg}`);
-  console.error('Usage: node src/cli/headless.js --seed <int> --night 1 [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>]');
+  console.error('Usage: node src/cli/headless.js --seed <int> --night <1|2|3> [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>]');
   process.exit(code);
 }
 
@@ -46,6 +46,9 @@ if (options.ticks === null || isNaN(options.ticks) || options.ticks < 0) {
 }
 if (!options.outPath) {
   printUsageAndExit(1, 'Missing --out parameter');
+}
+if (![1, 2, 3].includes(options.night)) {
+  options.night = 1;
 }
 
 // 1. Read Scenario if provided
@@ -91,6 +94,7 @@ for (const f of inputFrames) {
 // Initialize simulation
 const sim = new Simulation({
   seed: options.seed,
+  night: options.night,
   scenario
 });
 
@@ -99,14 +103,23 @@ const outLines = [];
 // Snapshot tick 0
 outLines.push(JSON.stringify(sim.getSnapshot(0)));
 
+// Initial night_start event
+outLines.push(JSON.stringify({
+  type: 'event',
+  tick: 0,
+  name: 'night_start',
+  data: { night: options.night }
+}));
+
 // Current input state (persistent across ticks until modified)
 let currentInputState = {
   move: [0, 0],
   cam_yaw_deg: 0,
   jump: false,
+  dash: false,
   interact: false,
   pulse: false,
-  dash: false
+  pause: false
 };
 
 const totalTicks = options.ticks;
@@ -119,9 +132,10 @@ for (let k = 0; k < totalTicks; k++) {
     if (frame.move !== undefined) currentInputState.move = [...frame.move];
     if (frame.cam_yaw_deg !== undefined) currentInputState.cam_yaw_deg = frame.cam_yaw_deg;
     if (frame.jump !== undefined) currentInputState.jump = !!frame.jump;
+    if (frame.dash !== undefined) currentInputState.dash = !!frame.dash;
     if (frame.interact !== undefined) currentInputState.interact = !!frame.interact;
     if (frame.pulse !== undefined) currentInputState.pulse = !!frame.pulse;
-    if (frame.dash !== undefined) currentInputState.dash = !!frame.dash;
+    if (frame.pause !== undefined) currentInputState.pause = !!frame.pause;
   }
 
   // Step simulation forward (tick k -> tick k + 1)
@@ -139,7 +153,7 @@ for (let k = 0; k < totalTicks; k++) {
   }
 
   // Stop if game ended (won or lost)
-  if (sim.state !== 'playing') {
+  if (sim.state === 'won' || (sim.state === 'lost' && sim.player.flames <= 0)) {
     break;
   }
 }
