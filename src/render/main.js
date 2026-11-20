@@ -212,8 +212,8 @@ mouseSensSlider.addEventListener('input', (e) => {
 // 3. THREE.JS SCENE, CAMERA, RENDERER, LIGHTING
 // ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a1024);
-scene.fog = new THREE.FogExp2(0x0e1736, 0.012);
+scene.background = new THREE.Color(0x050713); // Deep dark midnight
+scene.fog = new THREE.FogExp2(0x060916, 0.015);
 
 const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 400);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -222,14 +222,14 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
+renderer.toneMappingExposure = 1.02;
 
-// Ambient Light (Soft twilight illumination)
-const ambientLight = new THREE.AmbientLight(0x3e527d, 0.85);
+// Ambient Light (Darker night atmosphere, contrasts with glowing lanterns & fireflies)
+const ambientLight = new THREE.AmbientLight(0x1a2642, 0.28);
 scene.add(ambientLight);
 
 // Moon directional light (Silvery moonlight with soft shadows, generous frustum)
-const moonLight = new THREE.DirectionalLight(0xb4d2f8, 1.5);
+const moonLight = new THREE.DirectionalLight(0x9dbbe8, 0.75);
 moonLight.position.set(45, 80, -85);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.width = 2048;
@@ -307,7 +307,7 @@ scene.add(new THREE.Points(starGeo, starMat));
 // ----------------- CLOUD OCEAN BENEATH ISLAND -----------------
 const cloudGeo = new THREE.PlaneGeometry(450, 450, 32, 32);
 const cloudMat = new THREE.MeshStandardMaterial({
-  color: 0x123246,
+  color: 0x0a1c28,
   roughness: 0.95,
   metalness: 0.05,
   transparent: true,
@@ -319,19 +319,19 @@ cloudMesh.position.y = -8.5;
 cloudMesh.receiveShadow = true;
 scene.add(cloudMesh);
 
-// Glow Textures
+// Glow Textures (Warm Golden Amber for lanterns)
 const moteGlowTexture = createCleanGlowTexture('#ffe58a');
-const lanternGlowTexture = createCleanGlowTexture('#ff4433');
+const lanternGlowTexture = createCleanGlowTexture('#ffaa33'); // Warm Golden Amber
 const cyanGlowTexture = createCleanGlowTexture('#38bdf8');
 const charmGlowTexture = createCleanGlowTexture('#ff3344');
 
-// Procedural Rich Moss / Grass Texture Generator (Image 2 vibrant emerald tones)
+// Procedural Rich Moss / Grass Texture Generator (Deep emerald midnight meadow)
 function createGrassTexture() {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 512;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#26733e';
+  ctx.fillStyle = '#164326'; // Darker emerald night tone
   ctx.fillRect(0, 0, 512, 512);
 
   // Soft moss blotches
@@ -339,7 +339,7 @@ function createGrassTexture() {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
     const r = Math.random() * 5 + 1.5;
-    ctx.fillStyle = Math.random() > 0.45 ? 'rgba(56, 142, 60, 0.45)' : 'rgba(24, 76, 42, 0.35)';
+    ctx.fillStyle = Math.random() > 0.45 ? 'rgba(28, 76, 42, 0.45)' : 'rgba(14, 42, 22, 0.4)';
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -348,7 +348,7 @@ function createGrassTexture() {
   for (let i = 0; i < 700; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
-    ctx.fillStyle = 'rgba(220, 185, 60, 0.15)';
+    ctx.fillStyle = 'rgba(220, 185, 60, 0.12)';
     ctx.beginPath();
     ctx.arc(x, y, 1.8, 0, Math.PI * 2);
     ctx.fill();
@@ -577,29 +577,46 @@ function createOrientLanternPostMesh(id) {
   tassel.position.set(0.95, 2.02, 0);
   group.add(tassel);
 
-  // Warm Red/Amber PointLight inside lantern (castShadow = false for performance)
-  const light = new THREE.PointLight(0xff3b30, 0.0, 16.0);
+  // Warm Golden Amber PointLight inside lantern
+  const light = new THREE.PointLight(0xffa834, 0.0, 24.0, 1.2);
   light.position.set(0.95, 2.65, 0);
   group.add(light);
 
-  // Soft Radial Glow Sprite
+  // Soft Radial Glow Sprite (Warm Amber)
   const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: lanternGlowTexture,
-    color: 0xff4d3d,
+    color: 0xffaa33,
     transparent: true,
     opacity: 0.0,
     depthWrite: false,
     blending: THREE.AdditiveBlending
   }));
   glowSprite.position.set(0.95, 2.65, 0);
-  glowSprite.scale.set(8, 8, 1);
+  glowSprite.scale.set(13, 13, 1);
   group.add(glowSprite);
+
+  // Warm Golden Light Pool on the ground beneath the lantern
+  const groundPool = new THREE.Mesh(
+    new THREE.PlaneGeometry(11.0, 11.0),
+    new THREE.MeshBasicMaterial({
+      map: lanternGlowTexture,
+      color: 0xffaa33,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    })
+  );
+  groundPool.rotation.x = -Math.PI / 2;
+  groundPool.position.set(0.95, 0.03, 0);
+  group.add(groundPool);
 
   group.userData = {
     id,
     lanternMat,
     light,
     glowSprite,
+    groundPool,
     lit: false,
     lightProgress: 0.0
   };
@@ -1156,6 +1173,68 @@ let shadeMeshes = new Map();
 let drifterMeshes = new Map();
 let charmMeshes = new Map();
 
+// Generator for Clustered Motes (Tần xuất đom đóm cụm lại 1 chỗ nhiều lên)
+function generateClusteredMotes(night) {
+  const motes = [];
+  let id = 1;
+
+  function addCluster(cx, cz, count, radius = 1.3, groundY = 0) {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + (i % 2) * 0.4;
+      const r = (0.25 + 0.65 * ((i * 3) % 5) / 4) * radius;
+      motes.push({
+        id: `M${id++}`,
+        pos: [
+          Math.round((cx + Math.cos(ang) * r) * 1000) / 1000,
+          groundY,
+          Math.round((cz + Math.sin(ang) * r) * 1000) / 1000
+        ]
+      });
+    }
+  }
+
+  if (night === 1) {
+    // 13 rich clusters across Đảo Bến (3-4 motes per swarm)
+    addCluster(3.5, 3.5, 4, 1.2, 0);       // Center clearing
+    addCluster(-6.0, 8.2, 4, 1.4, 0);      // Ancient Dolmen Altar
+    addCluster(0.2, 16.0, 4, 1.5, 0);      // North Lotus Clump
+    addCluster(15.0, 6.5, 4, 1.5, 0);      // East Palm Grove
+    addCluster(10.0, -14.0, 4, 1.4, 0);    // Southeast Mossy Boulders
+    addCluster(-4.0, -16.0, 4, 1.5, 0);    // South Meadow
+    addCluster(-16.0, -6.0, 4, 1.5, 0);    // West Path
+    addCluster(-14.0, 12.0, 4, 1.4, 0);    // Northwest Palms
+    addCluster(0.0, 21.5, 3, 1.0, 0);      // Near L1 approach
+    addCluster(20.0, 7.0, 3, 1.0, 0);      // Near L2 approach
+    addCluster(12.5, -17.5, 3, 1.0, 0);    // Near L3 approach
+    addCluster(-12.5, -17.5, 3, 1.0, 0);   // Near L4 approach
+    addCluster(-20.0, 7.0, 3, 1.0, 0);     // Near L5 approach
+  } else if (night === 2) {
+    // Clusters across Island 1, Island 2, and Bamboo Bridge
+    addCluster(0, 8, 4, 1.3, 0);
+    addCluster(-10, 0, 4, 1.4, 0);
+    addCluster(10, -6, 4, 1.4, 0);
+    addCluster(0, -12, 4, 1.4, 0);
+    addCluster(35, 0, 4, 1.0, 0);          // On the bridge near Charm
+    addCluster(70, 8, 4, 1.3, 0);
+    addCluster(60, -4, 4, 1.4, 0);
+    addCluster(80, 0, 4, 1.4, 0);
+    addCluster(70, -12, 4, 1.4, 0);
+  } else if (night === 3) {
+    // Clusters across the 3 tiers
+    addCluster(20, 12, 4, 1.5, 0);         // Tier 1
+    addCluster(-22, 10, 4, 1.5, 0);        // Tier 1
+    addCluster(14, -22, 4, 1.5, 0);        // Tier 1
+    addCluster(-16, -20, 4, 1.5, 0);       // Tier 1
+    addCluster(12, 12, 4, 1.3, 3);         // Tier 2
+    addCluster(-12, 12, 4, 1.3, 3);        // Tier 2
+    addCluster(0, 16, 4, 1.3, 3);          // Tier 2
+    addCluster(3, 4, 3, 1.0, 6);           // Tier 3 near Pagoda
+    addCluster(-3, 4, 3, 1.0, 6);          // Tier 3 near Pagoda
+  }
+
+  return motes;
+}
+
 // Initialize Game (Strictly adhering to PDF 1 & PDF 2 standards!)
 function initGame(night = 1) {
   currentNight = night;
@@ -1186,13 +1265,23 @@ function initGame(night = 1) {
   charmMeshes.forEach(c => scene.remove(c));
   charmMeshes.clear();
 
-  // Create simulation conforming to standard tuning from PDF 2
+  const clusterMotes = generateClusteredMotes(night);
+
+  // Create simulation: strictly only 3 motes needed to light a lantern!
   sim = new Simulation({
     night,
     seed: 12345 + night * 100,
-    initial_motes: (night === 1) ? 24 : 20,
+    tuning: {
+      lantern_cost: 3 // Chỉ cần 3 đom đóm để thắp sáng đèn lồng!
+    },
+    scenario: {
+      motes: clusterMotes
+    },
     initial_shades: 2
   });
+
+  // Assign cluster spawn points for periodic respawn
+  sim.map.mote_spawns = clusterMotes.map(m => [...m.pos]);
 
   // Create Lantern Posts based on Image 1 placed at PDF 2 exact coordinates
   for (const l of sim.lanterns) {
@@ -1597,12 +1686,12 @@ function animate(now) {
   camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.12);
   camera.lookAt(mayMesh.position.x, mayMesh.position.y + 0.9, mayMesh.position.z);
 
-  // Dynamic Scene Ambient Lighting based on progress
+  // Dynamic Scene Ambient Lighting based on progress (Starts dark, brightens gracefully with lanterns)
   const litCount = sim.lanterns.filter(l => l.lit).length;
   const totalLanterns = sim.lanterns.length;
-  ambientLight.intensity = 0.35 + 0.45 * (litCount / totalLanterns);
+  ambientLight.intensity = 0.22 + 0.38 * (litCount / totalLanterns);
 
-  // Update Traditional Lantern Posts
+  // Update Traditional Lantern Posts (Radiates glorious warm golden amber light)
   for (const lMesh of lanternMeshes) {
     const lData = sim.lanterns.find(l => l.id === lMesh.userData.id);
     if (!lData) continue;
@@ -1617,9 +1706,13 @@ function animate(now) {
 
     const prog = lMesh.userData.lightProgress;
     const flicker = 1.0 + Math.sin(now * 0.012 + lMesh.position.x) * 0.08;
-    lMesh.userData.light.intensity = prog * 3.2 * flicker;
-    lMesh.userData.glowSprite.material.opacity = prog * 0.9 * flicker;
-    lMesh.userData.lanternMat.emissive.setRGB(1.0 * prog, 0.25 * prog, 0.15 * prog);
+    lMesh.userData.light.intensity = prog * 5.2 * flicker;
+    lMesh.userData.light.color.setHex(0xffaa33); // Warm golden amber!
+    lMesh.userData.glowSprite.material.opacity = prog * 0.95 * flicker;
+    if (lMesh.userData.groundPool) {
+      lMesh.userData.groundPool.material.opacity = prog * 0.8 * flicker;
+    }
+    lMesh.userData.lanternMat.emissive.setRGB(1.0 * prog, 0.65 * prog, 0.18 * prog);
   }
 
   // Update Motes Visuals (Zero rectangular boxes, depthWrite: false)
