@@ -577,12 +577,26 @@ function createOrientLanternPostMesh(id) {
   tassel.position.set(0.95, 2.02, 0);
   group.add(tassel);
 
-  // Warm Golden Amber PointLight inside lantern
-  const light = new THREE.PointLight(0xffa834, 0.0, 24.0, 1.2);
+  // Warm Golden Amber PointLight inside lantern (Physically illuminates 3D terrain & flora)
+  const light = new THREE.PointLight(0xffaa33, 0.0, 22.0, 1.6);
   light.position.set(0.95, 2.65, 0);
   group.add(light);
 
-  // Soft Radial Glow Sprite (Warm Amber)
+  // Volumetric 3D Soft Light Sphere (Natural warm spherical aura, not a flat 2D slice)
+  const glowSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1.2, 16, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0xffaa33,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    })
+  );
+  glowSphere.position.set(0.95, 2.65, 0);
+  group.add(glowSphere);
+
+  // Soft Radial Glow Sprite (Camera-facing atmospheric haze)
   const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: lanternGlowTexture,
     color: 0xffaa33,
@@ -592,31 +606,15 @@ function createOrientLanternPostMesh(id) {
     blending: THREE.AdditiveBlending
   }));
   glowSprite.position.set(0.95, 2.65, 0);
-  glowSprite.scale.set(13, 13, 1);
+  glowSprite.scale.set(10, 10, 1);
   group.add(glowSprite);
-
-  // Warm Golden Light Pool on the ground beneath the lantern
-  const groundPool = new THREE.Mesh(
-    new THREE.PlaneGeometry(11.0, 11.0),
-    new THREE.MeshBasicMaterial({
-      map: lanternGlowTexture,
-      color: 0xffaa33,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    })
-  );
-  groundPool.rotation.x = -Math.PI / 2;
-  groundPool.position.set(0.95, 0.03, 0);
-  group.add(groundPool);
 
   group.userData = {
     id,
     lanternMat,
     light,
+    glowSphere,
     glowSprite,
-    groundPool,
     lit: false,
     lightProgress: 0.0
   };
@@ -1267,17 +1265,37 @@ function initGame(night = 1) {
 
   const clusterMotes = generateClusteredMotes(night);
 
-  // Create simulation: strictly only 3 motes needed to light a lantern!
+  // Initial chasing dark clouds (Dí Mây ngay từ đầu nhưng tốc độ chậm vừa phải)
+  let initialShades = [
+    { id: 'S1', pos: [12.0, 0, 9.0], state: 'chase' },
+    { id: 'S2', pos: [-11.0, 0, -11.0], state: 'chase' }
+  ];
+  if (night === 2) {
+    initialShades = [
+      { id: 'S1', pos: [12.0, 0, 8.0], state: 'chase' },
+      { id: 'S2', pos: [70.0, 0, 10.0], state: 'chase' }
+    ];
+  } else if (night === 3) {
+    initialShades = [
+      { id: 'S1', pos: [14.0, 0, 8.0], state: 'chase' },
+      { id: 'S2', pos: [-12.0, 0, -12.0], state: 'chase' }
+    ];
+  }
+
+  // Create simulation: 3 motes per lantern & dark clouds chase slowly from start
   sim = new Simulation({
     night,
     seed: 12345 + night * 100,
     tuning: {
-      lantern_cost: 3 // Chỉ cần 3 đom đóm để thắp sáng đèn lồng!
+      lantern_cost: 3,         // Chỉ cần 3 đom đóm để thắp sáng đèn lồng!
+      shade_speed: 2.2,         // Mây đen dí chậm từ đầu (2.2 m/s so với Mây 6.0 m/s)
+      shade_detect_radius: 40.0,// Tầm phát hiện rộng để luôn bám theo
+      shade_lose_radius: 55.0   // Không bị mất dấu khi Mây lùi lại
     },
     scenario: {
-      motes: clusterMotes
-    },
-    initial_shades: 2
+      motes: clusterMotes,
+      shades: initialShades
+    }
   });
 
   // Assign cluster spawn points for periodic respawn
@@ -1394,7 +1412,7 @@ btnNextNight.addEventListener('click', () => {
 });
 
 // ==========================================
-// 11. CIRCULAR MINIMAP DRAWING
+// 11. ROTATING FORWARD-FACING MINIMAP (HEADING-UP RADAR)
 // ==========================================
 function updateMinimap() {
   const w = minimapCanvas.width;
@@ -1406,104 +1424,134 @@ function updateMinimap() {
   minimapCtx.clearRect(0, 0, w, h);
 
   minimapCtx.save();
+  // Clip into circular viewport
   minimapCtx.beginPath();
   minimapCtx.arc(cx, cy, rMinimap, 0, Math.PI * 2);
   minimapCtx.clip();
 
-  minimapCtx.fillStyle = '#0a1024';
+  // Dark circular radar background
+  minimapCtx.fillStyle = '#050a18';
   minimapCtx.fillRect(0, 0, w, h);
 
-  // Subtle grid rings
-  minimapCtx.strokeStyle = 'rgba(242, 193, 78, 0.15)';
+  // Concentric radar range rings (15m, 30m)
+  const mapScale = (rMinimap * 0.9) / 38.0; // ~38m radar radius
+  minimapCtx.strokeStyle = 'rgba(242, 193, 78, 0.12)';
   minimapCtx.lineWidth = 1;
   minimapCtx.beginPath();
-  minimapCtx.arc(cx, cy, rMinimap * 0.4, 0, Math.PI * 2);
-  minimapCtx.arc(cx, cy, rMinimap * 0.75, 0, Math.PI * 2);
+  minimapCtx.arc(cx, cy, 15.0 * mapScale, 0, Math.PI * 2);
+  minimapCtx.arc(cx, cy, 30.0 * mapScale, 0, Math.PI * 2);
   minimapCtx.stroke();
 
-  // Island Boundaries per Night
-  let mapScale = 1.0;
-  let offsetX = 0;
+  // Forward heading crosshairs (Top/Bottom, Left/Right)
+  minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  minimapCtx.beginPath();
+  minimapCtx.moveTo(cx, cy - rMinimap);
+  minimapCtx.lineTo(cx, cy + rMinimap);
+  minimapCtx.moveTo(cx - rMinimap, cy);
+  minimapCtx.lineTo(cx + rMinimap, cy);
+  minimapCtx.stroke();
 
+  // Calculate Mây's facing direction vector (fwdX, fwdZ)
+  let fwdX = 0, fwdZ = -1;
+  if (sim.player.facing_dir && (sim.player.facing_dir[0] !== 0 || sim.player.facing_dir[1] !== 0)) {
+    const len = Math.hypot(sim.player.facing_dir[0], sim.player.facing_dir[1]);
+    fwdX = sim.player.facing_dir[0] / len;
+    fwdZ = sim.player.facing_dir[1] / len;
+  }
+  // Right vector: (-fwdZ, fwdX)
+  const rightX = -fwdZ;
+  const rightZ = fwdX;
+
+  const px = sim.player.pos[0];
+  const pz = sim.player.pos[2];
+
+  // Function to project world (wx, wz) to screen (sx, sy) relative to player
+  // Forward points STRAIGHT UP on screen (-Y), Right points RIGHT (+X)
+  function toScreen(wx, wz) {
+    const dx = wx - px;
+    const dz = wz - pz;
+    const fwdDist = dx * fwdX + dz * fwdZ;
+    const rightDist = dx * rightX + dz * rightZ;
+    return [
+      cx + rightDist * mapScale,
+      cy - fwdDist * mapScale
+    ];
+  }
+
+  // 1. Draw Island Boundaries (Transforms circles/bridges in player's reference frame)
   if (currentNight === 1) {
-    mapScale = (rMinimap * 0.88) / 40.0;
-    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.75)';
+    const [icx, icy] = toScreen(0, 0);
+    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.7)';
     minimapCtx.lineWidth = 2.5;
     minimapCtx.beginPath();
-    minimapCtx.arc(cx, cy, 40.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(icx, icy, 40.0 * mapScale, 0, Math.PI * 2);
     minimapCtx.stroke();
   } else if (currentNight === 2) {
-    mapScale = (rMinimap * 0.85) / 55.0;
-    offsetX = 35.0; // Center between the twin islands at x=35
-    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.75)';
+    const [i1x, i1y] = toScreen(0, 0);
+    const [i2x, i2y] = toScreen(70, 0);
+    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.7)';
     minimapCtx.lineWidth = 2;
-    // Island 1 at x=0
     minimapCtx.beginPath();
-    minimapCtx.arc(cx + (0 - offsetX) * mapScale, cy, 28.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(i1x, i1y, 28.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(i2x, i2y, 28.0 * mapScale, 0, Math.PI * 2);
     minimapCtx.stroke();
-    // Island 2 at x=70
-    minimapCtx.beginPath();
-    minimapCtx.arc(cx + (70 - offsetX) * mapScale, cy, 28.0 * mapScale, 0, Math.PI * 2);
-    minimapCtx.stroke();
-    // Bridge connecting them
-    minimapCtx.strokeStyle = 'rgba(140, 109, 70, 0.8)';
+
+    const [b1x, b1y] = toScreen(26, 0);
+    const [b2x, b2y] = toScreen(44, 0);
+    minimapCtx.strokeStyle = 'rgba(140, 109, 70, 0.85)';
     minimapCtx.lineWidth = 3;
     minimapCtx.beginPath();
-    minimapCtx.moveTo(cx + (26 - offsetX) * mapScale, cy);
-    minimapCtx.lineTo(cx + (44 - offsetX) * mapScale, cy);
+    minimapCtx.moveTo(b1x, b1y);
+    minimapCtx.lineTo(b2x, b2y);
     minimapCtx.stroke();
   } else if (currentNight === 3) {
-    mapScale = (rMinimap * 0.88) / 45.0;
-    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.75)';
+    const [tcx, tcy] = toScreen(0, 0);
     minimapCtx.lineWidth = 1.8;
-    // Tier 1 (R=45)
+    minimapCtx.strokeStyle = 'rgba(46, 125, 71, 0.7)';
     minimapCtx.beginPath();
-    minimapCtx.arc(cx, cy, 45.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(tcx, tcy, 45.0 * mapScale, 0, Math.PI * 2);
     minimapCtx.stroke();
-    // Tier 2 (R=24)
+
     minimapCtx.strokeStyle = 'rgba(56, 142, 60, 0.6)';
     minimapCtx.beginPath();
-    minimapCtx.arc(cx, cy, 24.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(tcx, tcy, 24.0 * mapScale, 0, Math.PI * 2);
     minimapCtx.stroke();
-    // Tier 3 (R=8)
+
     minimapCtx.strokeStyle = 'rgba(242, 193, 78, 0.5)';
     minimapCtx.beginPath();
-    minimapCtx.arc(cx, cy, 8.0 * mapScale, 0, Math.PI * 2);
+    minimapCtx.arc(tcx, tcy, 8.0 * mapScale, 0, Math.PI * 2);
     minimapCtx.stroke();
   }
 
-  // Draw Motes (Tiny yellow sparks)
-  minimapCtx.fillStyle = 'rgba(255, 230, 138, 0.65)';
+  // 2. Draw Motes (Tiny golden sparks)
+  minimapCtx.fillStyle = 'rgba(255, 230, 138, 0.75)';
   for (const m of sim.motes) {
     if (!m.active) continue;
-    const mx = cx + (m.pos[0] - offsetX) * mapScale;
-    const my = cy + m.pos[2] * mapScale;
-    minimapCtx.fillRect(mx - 1, my - 1, 2, 2);
+    const [mx, my] = toScreen(m.pos[0], m.pos[2]);
+    minimapCtx.fillRect(mx - 1.5, my - 1.5, 3, 3);
   }
 
-  // Draw Charms (Crimson dots)
+  // 3. Draw Charms (Crimson dots)
   if (sim.charms) {
     for (const c of sim.charms) {
       if (!c.active) continue;
-      const chx = cx + (c.pos[0] - offsetX) * mapScale;
-      const chy = cy + c.pos[2] * mapScale;
+      const [chx, chy] = toScreen(c.pos[0], c.pos[2]);
       minimapCtx.beginPath();
-      minimapCtx.arc(chx, chy, 3.5, 0, Math.PI * 2);
+      minimapCtx.arc(chx, chy, 4.0, 0, Math.PI * 2);
       minimapCtx.fillStyle = '#ff3344';
       minimapCtx.fill();
     }
   }
 
-  // Draw Lanterns
+  // 4. Draw Lanterns
   for (const l of sim.lanterns) {
-    const lx = cx + (l.pos[0] - offsetX) * mapScale;
-    const ly = cy + l.pos[2] * mapScale;
+    const [lx, ly] = toScreen(l.pos[0], l.pos[2]);
 
     minimapCtx.beginPath();
-    minimapCtx.arc(lx, ly, 4, 0, Math.PI * 2);
+    minimapCtx.arc(lx, ly, 4.5, 0, Math.PI * 2);
     if (l.lit) {
-      minimapCtx.fillStyle = '#ffb347';
-      minimapCtx.shadowColor = '#ffb347';
+      minimapCtx.fillStyle = '#ffaa33';
+      minimapCtx.shadowColor = '#ffaa33';
       minimapCtx.shadowBlur = 8;
     } else {
       minimapCtx.fillStyle = '#94a3b8';
@@ -1513,57 +1561,69 @@ function updateMinimap() {
     minimapCtx.shadowBlur = 0;
   }
 
-  // Draw Drifters (Gió Lạc - Silver Blue)
+  // 5. Draw Drifters (Gió Lạc - Silver Blue)
   if (sim.drifters) {
     for (const d of sim.drifters) {
-      const dx = cx + (d.pos[0] - offsetX) * mapScale;
-      const dy = cy + d.pos[2] * mapScale;
+      const [dx, dy] = toScreen(d.pos[0], d.pos[2]);
       minimapCtx.beginPath();
-      minimapCtx.arc(dx, dy, 3.5, 0, Math.PI * 2);
+      minimapCtx.arc(dx, dy, 4.0, 0, Math.PI * 2);
       minimapCtx.fillStyle = '#8fa3b8';
       minimapCtx.fill();
     }
   }
 
-  // Draw Chasing Dark Clouds (Màu xanh đậm theo yêu cầu!)
+  // 6. Draw Chasing Dark Clouds (Màu xanh đậm theo yêu cầu!)
   for (const s of sim.shades) {
-    const sx = cx + (s.pos[0] - offsetX) * mapScale;
-    const sy = cy + s.pos[2] * mapScale;
+    const [sx, sy] = toScreen(s.pos[0], s.pos[2]);
 
     minimapCtx.beginPath();
-    minimapCtx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+    minimapCtx.arc(sx, sy, 5.0, 0, Math.PI * 2);
     minimapCtx.fillStyle = '#1e40af';
     minimapCtx.shadowColor = '#2563eb';
-    minimapCtx.shadowBlur = 8;
+    minimapCtx.shadowBlur = 9;
     minimapCtx.fill();
     minimapCtx.shadowBlur = 0;
 
-    minimapCtx.strokeStyle = '#0f172a';
-    minimapCtx.lineWidth = 1.5;
+    minimapCtx.strokeStyle = '#38bdf8';
+    minimapCtx.lineWidth = 1.2;
     minimapCtx.stroke();
   }
 
-  // Draw Mây (Moving RED DOT chấm đỏ đang di chuyển!)
-  const px = cx + (sim.player.pos[0] - offsetX) * mapScale;
-  const py = cy + sim.player.pos[2] * mapScale;
-
+  // 7. Draw Mây (Facing UP Chevron at Center with Vision Cone)
+  minimapCtx.save();
+  // Vision wedge pointing straight UP
   minimapCtx.beginPath();
-  minimapCtx.arc(px, py, 6.5, 0, Math.PI * 2);
-  minimapCtx.fillStyle = 'rgba(255, 50, 70, 0.35)';
+  minimapCtx.moveTo(cx, cy);
+  minimapCtx.arc(cx, cy, 26, -Math.PI / 2 - 0.45, -Math.PI / 2 + 0.45);
+  minimapCtx.closePath();
+  minimapCtx.fillStyle = 'rgba(255, 60, 70, 0.18)';
   minimapCtx.fill();
 
+  // Outer red pulsing circle
   minimapCtx.beginPath();
-  minimapCtx.arc(px, py, 4, 0, Math.PI * 2);
+  minimapCtx.arc(cx, cy, 8.5, 0, Math.PI * 2);
+  minimapCtx.fillStyle = 'rgba(255, 34, 51, 0.28)';
+  minimapCtx.fill();
+
+  // Navigation Arrow pointing straight forward (UP on screen)
+  minimapCtx.beginPath();
+  minimapCtx.moveTo(cx, cy - 8);
+  minimapCtx.lineTo(cx - 5.5, cy + 5.5);
+  minimapCtx.lineTo(cx, cy + 2.5);
+  minimapCtx.lineTo(cx + 5.5, cy + 5.5);
+  minimapCtx.closePath();
   minimapCtx.fillStyle = '#ff2233';
   minimapCtx.shadowColor = '#ff2233';
   minimapCtx.shadowBlur = 10;
   minimapCtx.fill();
-  minimapCtx.shadowBlur = 0;
 
+  // White core dot
   minimapCtx.beginPath();
-  minimapCtx.arc(px, py, 1.5, 0, Math.PI * 2);
+  minimapCtx.arc(cx, cy, 1.8, 0, Math.PI * 2);
   minimapCtx.fillStyle = '#ffffff';
+  minimapCtx.shadowBlur = 0;
   minimapCtx.fill();
+  minimapCtx.restore();
 
   minimapCtx.restore();
 }
@@ -1706,12 +1766,12 @@ function animate(now) {
 
     const prog = lMesh.userData.lightProgress;
     const flicker = 1.0 + Math.sin(now * 0.012 + lMesh.position.x) * 0.08;
-    lMesh.userData.light.intensity = prog * 5.2 * flicker;
+    lMesh.userData.light.intensity = prog * 4.8 * flicker;
     lMesh.userData.light.color.setHex(0xffaa33); // Warm golden amber!
-    lMesh.userData.glowSprite.material.opacity = prog * 0.95 * flicker;
-    if (lMesh.userData.groundPool) {
-      lMesh.userData.groundPool.material.opacity = prog * 0.8 * flicker;
+    if (lMesh.userData.glowSphere) {
+      lMesh.userData.glowSphere.material.opacity = prog * 0.3 * flicker;
     }
+    lMesh.userData.glowSprite.material.opacity = prog * 0.75 * flicker;
     lMesh.userData.lanternMat.emissive.setRGB(1.0 * prog, 0.65 * prog, 0.18 * prog);
   }
 
