@@ -22,3 +22,5 @@ export class PRNG {
     return Math.floor(this.nextRange(min, max + 1));
   }
 }
+
+export const Mulberry32 = PRNG;

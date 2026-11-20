@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Simulation } from '../core/simulation.js';
 import { NIGHT1_MAP, NIGHT2_MAP, NIGHT3_MAP } from '../core/constants.js';
+import { Mulberry32 } from '../core/prng.js';
+import { round1, round3, distXZ } from '../core/math.js';
 
 // ==========================================
 // 1. PROCEDURAL WEB AUDIO SYNTHESIZER
@@ -279,8 +281,365 @@ if (welcomeColorblindToggle) {
 }
 document.body.classList.toggle('colorblind-mode', isColorblind);
 
+// ==========================================
+// ACCESSIBILITY & CONTROLS REBINDING (Phase 4)
+// ==========================================
+const DEFAULT_KEYBINDS = {
+  forward: 'KeyW',
+  backward: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
+  jump: 'Space',
+  dash: 'ShiftLeft',
+  interact: 'KeyE',
+  pulse: 'KeyF',
+  pause: 'Escape'
+};
+
+let userKeybinds = { ...DEFAULT_KEYBINDS };
+try {
+  const savedKeys = localStorage.getItem('dao_den_long_keybinds');
+  if (savedKeys) userKeybinds = Object.assign({}, DEFAULT_KEYBINDS, JSON.parse(savedKeys));
+} catch (e) {}
+
+function saveKeybinds() {
+  localStorage.setItem('dao_den_long_keybinds', JSON.stringify(userKeybinds));
+}
+
+function getKeyLabel(code) {
+  if (!code) return '';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code === 'ShiftLeft' || code === 'ShiftRight') return 'Shift';
+  if (code === 'ControlLeft' || code === 'ControlRight') return 'Ctrl';
+  if (code === 'AltLeft' || code === 'AltRight') return 'Alt';
+  if (code === 'Space') return 'Space';
+  if (code === 'Escape') return 'Esc';
+  return code;
+}
+
+const largeFontToggle = document.getElementById('large-font-toggle');
+let isLargeFont = localStorage.getItem('dao_den_long_large_font') === 'true';
+function setLargeFont(enabled) {
+  isLargeFont = enabled;
+  localStorage.setItem('dao_den_long_large_font', isLargeFont ? 'true' : 'false');
+  document.body.classList.toggle('large-font-mode', isLargeFont);
+  if (largeFontToggle) largeFontToggle.checked = isLargeFont;
+}
+setLargeFont(isLargeFont);
+if (largeFontToggle) {
+  largeFontToggle.checked = isLargeFont;
+  largeFontToggle.addEventListener('change', (e) => setLargeFont(e.target.checked));
+}
+
+const reduceMotionToggle = document.getElementById('reduce-motion-toggle');
+let isReduceMotion = localStorage.getItem('dao_den_long_reduce_motion') === 'true';
+function setReduceMotion(enabled) {
+  isReduceMotion = enabled;
+  localStorage.setItem('dao_den_long_reduce_motion', isReduceMotion ? 'true' : 'false');
+  document.body.classList.toggle('reduce-motion', isReduceMotion);
+  if (reduceMotionToggle) reduceMotionToggle.checked = isReduceMotion;
+}
+setReduceMotion(isReduceMotion);
+if (reduceMotionToggle) {
+  reduceMotionToggle.checked = isReduceMotion;
+  reduceMotionToggle.addEventListener('change', (e) => setReduceMotion(e.target.checked));
+}
+
+// Key Rebinding UI
+let listeningAction = null;
+const rebindBtns = document.querySelectorAll('.rebind-key-btn');
+const rebindWarning = document.getElementById('rebind-warning');
+
+function updateRebindButtonLabels() {
+  rebindBtns.forEach(btn => {
+    const act = btn.getAttribute('data-action');
+    btn.textContent = getKeyLabel(userKeybinds[act] || DEFAULT_KEYBINDS[act]);
+  });
+}
+updateRebindButtonLabels();
+
+rebindBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    rebindBtns.forEach(b => b.classList.remove('listening'));
+    if (rebindWarning) rebindWarning.style.display = 'none';
+    listeningAction = btn.getAttribute('data-action');
+    btn.classList.add('listening');
+    btn.textContent = '...nhấn...';
+  });
+});
+
+window.addEventListener('keydown', (e) => {
+  if (!listeningAction) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const newCode = e.code;
+  let conflictAction = null;
+  for (const [act, code] of Object.entries(userKeybinds)) {
+    if (act !== listeningAction && code === newCode) {
+      conflictAction = act;
+      break;
+    }
+  }
+
+  if (conflictAction) {
+    if (rebindWarning) {
+      rebindWarning.style.display = 'block';
+      rebindWarning.textContent = `⚠️ Phím [${getKeyLabel(newCode)}] đã được gán cho hành động "${conflictAction}". Vui lòng chọn phím khác!`;
+    }
+    updateRebindButtonLabels();
+    rebindBtns.forEach(b => b.classList.remove('listening'));
+    listeningAction = null;
+    return;
+  }
+
+  userKeybinds[listeningAction] = newCode;
+  saveKeybinds();
+  updateRebindButtonLabels();
+  if (rebindWarning) rebindWarning.style.display = 'none';
+  rebindBtns.forEach(b => b.classList.remove('listening'));
+  listeningAction = null;
+}, true);
+
+const btnResetKeybinds = document.getElementById('btn-reset-keybinds');
+if (btnResetKeybinds) {
+  btnResetKeybinds.addEventListener('click', () => {
+    userKeybinds = { ...DEFAULT_KEYBINDS };
+    saveKeybinds();
+    updateRebindButtonLabels();
+    if (rebindWarning) {
+      rebindWarning.style.display = 'block';
+      rebindWarning.textContent = '✅ Đã khôi phục các phím điều khiển mặc định.';
+    }
+  });
+}
+
+// Accessibility Modal Open / Close
+const accessibilityModal = document.getElementById('accessibility-modal');
+const btnWelcomeAccessibility = document.getElementById('btn-welcome-accessibility');
+const btnPauseAccessibility = document.getElementById('btn-pause-accessibility');
+const btnCloseAccessibility = document.getElementById('btn-close-accessibility');
+
+if (btnWelcomeAccessibility) {
+  btnWelcomeAccessibility.addEventListener('click', () => {
+    if (accessibilityModal) accessibilityModal.style.display = 'flex';
+  });
+}
+if (btnPauseAccessibility) {
+  btnPauseAccessibility.addEventListener('click', () => {
+    if (accessibilityModal) accessibilityModal.style.display = 'flex';
+  });
+}
+if (btnCloseAccessibility) {
+  btnCloseAccessibility.addEventListener('click', () => {
+    if (accessibilityModal) accessibilityModal.style.display = 'none';
+  });
+}
+
+// ==========================================
+// LOCAL LEADERBOARD SYSTEM (Phase 4)
+// ==========================================
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const btnWelcomeLeaderboard = document.getElementById('btn-welcome-leaderboard');
+const btnPauseLeaderboard = document.getElementById('btn-pause-leaderboard');
+const btnCloseLeaderboard = document.getElementById('btn-close-leaderboard');
+const lbTableBody = document.getElementById('lb-table-body');
+
+const DEFAULT_LEADERBOARD = [
+  { name: 'May_Master', score: 1450, nights_won: 3, achieved_at: '2026-11-20T18:00:00+07:00' },
+  { name: 'Light_Keeper', score: 1280, nights_won: 3, achieved_at: '2026-11-20T18:15:00+07:00' },
+  { name: 'Lantern_Hero', score: 980, nights_won: 2, achieved_at: '2026-11-20T19:00:00+07:00' },
+  { name: 'Star_Wanderer', score: 820, nights_won: 2, achieved_at: '2026-11-20T19:30:00+07:00' },
+  { name: 'Dawn_Seeker', score: 550, nights_won: 1, achieved_at: '2026-11-20T20:00:00+07:00' }
+];
+
+function getStoredLeaderboard() {
+  try {
+    const raw = localStorage.getItem('dao_den_long_leaderboard');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [...DEFAULT_LEADERBOARD];
+}
+
+function saveStoredLeaderboard(entries) {
+  localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(entries));
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, m => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[m]);
+}
+
+function renderLeaderboardTable() {
+  if (!lbTableBody) return;
+  const entries = getStoredLeaderboard();
+  lbTableBody.innerHTML = '';
+  entries.forEach((e, idx) => {
+    const tr = document.createElement('tr');
+    const rankClass = idx === 0 ? 'rank-1' : (idx === 1 ? 'rank-2' : (idx === 2 ? 'rank-3' : ''));
+    const dateFormatted = (e.achieved_at || '').split('T')[0] || '';
+    tr.innerHTML = `
+      <td style="text-align: center;"><span class="rank-badge ${rankClass}">${idx + 1}</span></td>
+      <td><b>${escapeHtml(e.name)}</b></td>
+      <td style="text-align: right; color: #f2c14e; font-weight: 700;">${e.score}</td>
+      <td style="text-align: center;">${e.nights_won} / 3</td>
+      <td style="text-align: right; font-size: 13px; color: #94a3b8;">${dateFormatted}</td>
+    `;
+    lbTableBody.appendChild(tr);
+  });
+}
+
+if (btnWelcomeLeaderboard) {
+  btnWelcomeLeaderboard.addEventListener('click', () => {
+    renderLeaderboardTable();
+    if (leaderboardModal) leaderboardModal.style.display = 'flex';
+  });
+}
+if (btnPauseLeaderboard) {
+  btnPauseLeaderboard.addEventListener('click', () => {
+    renderLeaderboardTable();
+    if (leaderboardModal) leaderboardModal.style.display = 'flex';
+  });
+}
+if (btnCloseLeaderboard) {
+  btnCloseLeaderboard.addEventListener('click', () => {
+    if (leaderboardModal) leaderboardModal.style.display = 'none';
+  });
+}
+
+// Save score from victory / defeat modal
+const btnSaveScore = document.getElementById('btn-save-score');
+const playerNameInput = document.getElementById('player-name-input');
+const saveScoreMsg = document.getElementById('save-score-msg');
+
+if (btnSaveScore && playerNameInput) {
+  btnSaveScore.addEventListener('click', () => {
+    const rawName = playerNameInput.value.trim();
+    if (rawName.length < 3 || rawName.length > 12) {
+      if (saveScoreMsg) {
+        saveScoreMsg.style.color = '#ff5a5f';
+        saveScoreMsg.textContent = '❌ Tên người chơi phải từ 3 đến 12 ký tự!';
+      }
+      return;
+    }
+    const currentList = getStoredLeaderboard();
+    const newEntry = {
+      name: rawName,
+      score: sim ? sim.score : 0,
+      nights_won: currentNight - 1 + (sim && sim.state === 'won' ? 1 : 0),
+      achieved_at: new Date().toISOString(),
+      seed: sim ? sim.seed : 42
+    };
+    currentList.push(newEntry);
+    currentList.sort((a, b) => b.score - a.score || new Date(a.achieved_at) - new Date(b.achieved_at));
+    const top10 = currentList.slice(0, 10);
+    saveStoredLeaderboard(top10);
+    if (saveScoreMsg) {
+      saveScoreMsg.style.color = '#38ef7d';
+      saveScoreMsg.textContent = '✅ Đã lưu điểm thành công vào Bảng Xếp Hạng Top 10!';
+    }
+    btnSaveScore.disabled = true;
+  });
+}
+
+// ==========================================
+// SUBTITLES & DIRECTIONAL ALERTS (Phase 4)
+// ==========================================
+const subtitlesBar = document.getElementById('subtitles-bar');
+const subtitlesIcon = document.getElementById('subtitles-icon');
+const subtitlesText = document.getElementById('subtitles-text');
+let subtitleTimeout = null;
+
+function showSubtitle(text, icon = '⚠️', alertClass = 'alert-warning', duration = 3000) {
+  if (!subtitlesBar || !subtitlesText) return;
+  subtitlesText.textContent = text;
+  if (subtitlesIcon) subtitlesIcon.textContent = icon;
+  subtitlesBar.className = '';
+  subtitlesBar.classList.add('visible');
+  if (alertClass) subtitlesBar.classList.add(alertClass);
+
+  if (subtitleTimeout) clearTimeout(subtitleTimeout);
+  subtitleTimeout = setTimeout(() => {
+    if (subtitlesBar) subtitlesBar.classList.remove('visible');
+  }, duration);
+}
+
+// Subtitle notification trackers
+let lastWindSubTick = 0;
+let tenSecAlertShown = false;
+let lastLowFuelSubTick = 0;
+let lastShadeChaseSubTick = 0;
+
+// ==========================================
+// BENCHMARK MODE (Ticket-04, Contract v1.3)
+// ==========================================
+const urlParams = new URLSearchParams(window.location.search);
+const isBenchmark = urlParams.get('bench') === '1' || urlParams.get('benchmark') === '1';
+const benchSeed = parseInt(urlParams.get('seed') || '42', 10);
+const benchDuration = parseFloat(urlParams.get('duration') || '30');
+
+let benchStartTime = null;
+let benchWarmupEnd = null;
+let benchMeasureEnd = null;
+let benchDtList = [];
+let lastBenchFrameTime = null;
+let benchReported = false;
+const pageStartTime = performance.now();
+
+function finishAndSendBenchmark() {
+  const N = benchDtList.length;
+  if (N === 0) return;
+  const sumDt = benchDtList.reduce((a, b) => a + b, 0);
+  const avg_fps = round1((1000 * N) / sumDt);
+  const k = Math.max(1, Math.ceil(0.01 * N));
+  const sortedDesc = [...benchDtList].sort((a, b) => b - a);
+  const sumK = sortedDesc.slice(0, k).reduce((a, b) => a + b, 0);
+  const p1_low_fps = round1(1000 / (sumK / k));
+  const sortedAsc = [...benchDtList].sort((a, b) => a - b);
+  const p95Idx = Math.min(sortedAsc.length - 1, Math.floor(0.95 * sortedAsc.length));
+  const frame_ms_p95 = round1(sortedAsc[p95Idx]);
+  const load_ms = Math.round(performance.now() - pageStartTime);
+
+  let glRenderer = 'Three.js r170 (WebGL)';
+  try {
+    const gl = renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) {
+      glRenderer += ' - ' + gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+    }
+  } catch (e) {}
+
+  const memMb = (window.performance && window.performance.memory)
+    ? Math.round(window.performance.memory.usedJSHeapSize / (1024 * 1024))
+    : null;
+
+  const benchResult = {
+    contract_version: '1.3',
+    avg_fps: avg_fps,
+    p1_low_fps: p1_low_fps,
+    frame_ms_p95: frame_ms_p95,
+    frames: N,
+    load_ms: load_ms,
+    peak_mem_mb: memMb,
+    vsync_off: true,
+    renderer: glRenderer,
+    os: navigator.platform || 'Unknown OS'
+  };
+
+  fetch('/api/bench-result', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(benchResult)
+  }).catch(() => {});
+}
+
 // Game Started state
-let gameStarted = false;
+let gameStarted = isBenchmark;
+if (isBenchmark && welcomeScreen) {
+  welcomeScreen.style.display = 'none';
+}
 
 if (btnStartGame) {
   btnStartGame.addEventListener('click', () => {
@@ -1852,50 +2211,90 @@ function initGame(night = 1) {
 
   const clusterMotes = generateClusteredMotes(night);
 
-  // Initial chasing dark clouds
-  // Màn 2: mỗi đảo 1 con mây đen (Đảo 1 và Đảo 2)
-  // Màn 3: mỗi tầng 1 con mây đen (Tầng 0, Tầng 1, Tầng 2)
-  let initialShades = [
-    { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
-  ];
-  if (night === 2) {
-    initialShades = [
-      { id: 'S1', pos: [12.0, 0.0, 8.0], state: 'chase', island: 0 },
-      { id: 'S2', pos: [70.0, 0.0, 8.0], state: 'chase', island: 1 }
-    ];
-  } else if (night === 3) {
-    initialShades = [
-      { id: 'S0', pos: [28.0, 0.0, -15.0], state: 'chase', tier: 0 },
-      { id: 'S1', pos: [15.0, 3.0, 10.0], state: 'chase', tier: 1 },
-      { id: 'S2', pos: [4.5, 6.0, 3.5], state: 'chase', tier: 2 }
-    ];
-  }
-
-  // Create simulation
-  sim = new Simulation({
-    night,
-    seed: 12345 + night * 100,
-    tuning: {
-      shade_speed: 1.85,        // Mây đen di chuyển vừa phải
-      shade_detect_radius: 35.0,// Tầm phát hiện vừa phải
-      shade_lose_radius: 50.0   // Không bị mất dấu khi Mây lùi lại
-    },
-    scenario: {
-      motes: clusterMotes,
-      shades: initialShades
+  if (isBenchmark) {
+    const prng = new Mulberry32(benchSeed);
+    const benchShades = [];
+    for (let i = 0; i < 200; i++) {
+      const r = Math.sqrt(prng.next()) * 36.0;
+      const ang = prng.next() * Math.PI * 2;
+      benchShades.push({
+        id: `BS${i + 1}`,
+        pos: [round3(r * Math.cos(ang)), 0.0, round3(r * Math.sin(ang))],
+        state: 'wander'
+      });
     }
-  });
 
-  // Điều chỉnh lịch sinh mây đen để không làm ngợp người chơi (đúng số lượng quy định, không sinh bừa bãi)
-  if (sim.map.shade_schedule) {
-    sim.map.shade_schedule.first_count = 0;       // Không sinh ồ ạt lúc 5 giây
-    sim.map.shade_schedule.max_shades = night === 3 ? 3 : (night === 2 ? 2 : 1);
-    sim.map.shade_schedule.interval_ticks = 999999; // Giữ nguyên đúng số lượng mây đen theo tầng/đảo
-    sim.map.shade_schedule.speed = 1.85;          // Tốc độ di chuyển chậm rãi
+    const benchMotes = [];
+    for (let i = 0; i < 100; i++) {
+      const r = Math.sqrt(prng.next()) * 36.0;
+      const ang = prng.next() * Math.PI * 2;
+      benchMotes.push({
+        id: `BM${i + 1}`,
+        pos: [round3(r * Math.cos(ang)), 0.5, round3(r * Math.sin(ang))],
+        kind: 'random'
+      });
+    }
+
+    sim = new Simulation({
+      night: 1,
+      seed: benchSeed,
+      benchmark: true,
+      scenario: {
+        shades: benchShades,
+        motes: benchMotes,
+        lanterns: [
+          { id: 'L1', lit: true, fuel: 100.0, ever_lit: true },
+          { id: 'L2', lit: true, fuel: 100.0, ever_lit: true },
+          { id: 'L3', lit: true, fuel: 100.0, ever_lit: true }
+        ]
+      }
+    });
+  } else {
+    // Initial chasing dark clouds
+    // Màn 2: mỗi đảo 1 con mây đen (Đảo 1 và Đảo 2)
+    // Màn 3: mỗi tầng 1 con mây đen (Tầng 0, Tầng 1, Tầng 2)
+    let initialShades = [
+      { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
+    ];
+    if (night === 2) {
+      initialShades = [
+        { id: 'S1', pos: [12.0, 0.0, 8.0], state: 'chase', island: 0 },
+        { id: 'S2', pos: [70.0, 0.0, 8.0], state: 'chase', island: 1 }
+      ];
+    } else if (night === 3) {
+      initialShades = [
+        { id: 'S0', pos: [28.0, 0.0, -15.0], state: 'chase', tier: 0 },
+        { id: 'S1', pos: [15.0, 3.0, 10.0], state: 'chase', tier: 1 },
+        { id: 'S2', pos: [4.5, 6.0, 3.5], state: 'chase', tier: 2 }
+      ];
+    }
+
+    // Create simulation
+    sim = new Simulation({
+      night,
+      seed: 12345 + night * 100,
+      tuning: {
+        shade_speed: 1.85,        // Mây đen di chuyển vừa phải
+        shade_detect_radius: 35.0,// Tầm phát hiện vừa phải
+        shade_lose_radius: 50.0   // Không bị mất dấu khi Mây lùi lại
+      },
+      scenario: {
+        motes: clusterMotes,
+        shades: initialShades
+      }
+    });
+
+    // Điều chỉnh lịch sinh mây đen để không làm ngợp người chơi (đúng số lượng quy định, không sinh bừa bãi)
+    if (sim.map.shade_schedule) {
+      sim.map.shade_schedule.first_count = 0;       // Không sinh ồ ạt lúc 5 giây
+      sim.map.shade_schedule.max_shades = night === 3 ? 3 : (night === 2 ? 2 : 1);
+      sim.map.shade_schedule.interval_ticks = 999999; // Giữ nguyên đúng số lượng mây đen theo tầng/đảo
+      sim.map.shade_schedule.speed = 1.85;          // Tốc độ di chuyển chậm rãi
+    }
+
+    // Assign cluster spawn points for periodic respawn
+    sim.map.mote_spawns = clusterMotes.map(m => [...m.pos]);
   }
-
-  // Assign cluster spawn points for periodic respawn
-  sim.map.mote_spawns = clusterMotes.map(m => [...m.pos]);
 
   // Create Lantern Posts based on Image 1 placed at PDF 2 exact coordinates
   // Tất cả lồng đèn lớn đều xoay tay đèn và mặt lồng đèn hướng về tâm đảo
@@ -1950,27 +2349,28 @@ let prevMouseX = 0;
 let prevMouseY = 0;
 
 window.addEventListener('keydown', (e) => {
+  if (listeningAction) return;
   sound.init();
   const code = e.code;
-  if (code === 'KeyW') keys.w = true;
-  if (code === 'KeyA') keys.a = true;
-  if (code === 'KeyS') keys.s = true;
-  if (code === 'KeyD') keys.d = true;
+  if (code === (userKeybinds.forward || 'KeyW')) keys.w = true;
+  if (code === (userKeybinds.left || 'KeyA')) keys.a = true;
+  if (code === (userKeybinds.backward || 'KeyS')) keys.s = true;
+  if (code === (userKeybinds.right || 'KeyD')) keys.d = true;
 
-  if (code === 'Space' && !e.repeat) wantsJump = true;
-  if ((code === 'ShiftLeft' || code === 'ShiftRight') && !e.repeat) wantsDash = true;
-  if (code === 'KeyE' && !e.repeat) wantsInteract = true;
-  if ((code === 'KeyF' || code === 'KeyQ') && !e.repeat) wantsPulse = true;
-  if ((code === 'Escape' || code === 'KeyP') && !e.repeat) wantsPause = true;
+  if (code === (userKeybinds.jump || 'Space') && !e.repeat) wantsJump = true;
+  if ((code === (userKeybinds.dash || 'ShiftLeft') || (userKeybinds.dash === 'ShiftLeft' && code === 'ShiftRight')) && !e.repeat) wantsDash = true;
+  if (code === (userKeybinds.interact || 'KeyE') && !e.repeat) wantsInteract = true;
+  if ((code === (userKeybinds.pulse || 'KeyF') || code === 'KeyQ') && !e.repeat) wantsPulse = true;
+  if ((code === (userKeybinds.pause || 'Escape') || code === 'KeyP') && !e.repeat) wantsPause = true;
   if (code === 'KeyR' && !e.repeat) initGame(currentNight);
 });
 
 window.addEventListener('keyup', (e) => {
   const code = e.code;
-  if (code === 'KeyW') keys.w = false;
-  if (code === 'KeyA') keys.a = false;
-  if (code === 'KeyS') keys.s = false;
-  if (code === 'KeyD') keys.d = false;
+  if (code === (userKeybinds.forward || 'KeyW')) keys.w = false;
+  if (code === (userKeybinds.left || 'KeyA')) keys.a = false;
+  if (code === (userKeybinds.backward || 'KeyS')) keys.s = false;
+  if (code === (userKeybinds.right || 'KeyD')) keys.d = false;
 });
 
 canvas.addEventListener('mousedown', (e) => {
@@ -2388,13 +2788,46 @@ function animate(now) {
   mayMesh.userData.heldLight.intensity = heldGlowIntensity;
   mayMesh.userData.miniBodyMat.emissiveIntensity = 0.5 + carried * 0.4;
 
-  // Smooth Third-Person Camera Follow
-  const targetCamX = mayMesh.position.x - Math.sin(camYaw) * Math.cos(camPitch) * camDist;
-  const targetCamY = Math.max(mayMesh.position.y + 1.2, mayMesh.position.y + Math.sin(camPitch) * camDist + 0.6);
-  const targetCamZ = mayMesh.position.z - Math.cos(camYaw) * Math.cos(camPitch) * camDist;
+  // Camera update: if benchmark, orbit around (0,0,0); otherwise smooth follow player
+  if (isBenchmark) {
+    mayMesh.position.set(0, 0, 0);
 
-  camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.12);
-  camera.lookAt(mayMesh.position.x, mayMesh.position.y + 0.9, mayMesh.position.z);
+    if (benchStartTime === null) {
+      benchStartTime = now;
+      benchWarmupEnd = now + 3000;
+      benchMeasureEnd = benchWarmupEnd + benchDuration * 1000;
+      lastBenchFrameTime = now;
+    }
+
+    const elapsedTotalSec = (now - benchStartTime) / 1000.0;
+    // Circular orbit: center (0,0,0), radius 30m, height Y=15m, looking at (0,0,0)
+    // Starting at (30, 15, 0), CCW looking from above, 15s per revolution
+    const orbitAngle = (elapsedTotalSec / 15.0) * Math.PI * 2;
+    const camX = 30.0 * Math.cos(orbitAngle);
+    const camY = 15.0;
+    const camZ = -30.0 * Math.sin(orbitAngle);
+    camera.position.set(camX, camY, camZ);
+    camera.lookAt(0, 0, 0);
+
+    if (now >= benchWarmupEnd && now < benchMeasureEnd) {
+      const dt = Math.max(0.1, now - lastBenchFrameTime);
+      benchDtList.push(dt);
+    }
+    lastBenchFrameTime = now;
+
+    if (now >= benchMeasureEnd && !benchReported) {
+      benchReported = true;
+      finishAndSendBenchmark();
+    }
+  } else {
+    // Smooth Third-Person Camera Follow
+    const targetCamX = mayMesh.position.x - Math.sin(camYaw) * Math.cos(camPitch) * camDist;
+    const targetCamY = Math.max(mayMesh.position.y + 1.2, mayMesh.position.y + Math.sin(camPitch) * camDist + 0.6);
+    const targetCamZ = mayMesh.position.z - Math.cos(camYaw) * Math.cos(camPitch) * camDist;
+
+    camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.12);
+    camera.lookAt(mayMesh.position.x, mayMesh.position.y + 0.9, mayMesh.position.z);
+  }
 
   // Dynamic Scene Ambient Lighting based on progress (Starts dark, brightens gracefully with lanterns)
   const litCount = sim.lanterns.filter(l => l.lit).length;
@@ -2732,6 +3165,34 @@ function animate(now) {
       windAlertText.textContent = `🌪️ GIÓ ĐẢO CHUÔNG: Đang thổi mạnh (hướng ${dirDeg}°)!`;
     } else {
       windAlertBanner.style.display = 'none';
+    }
+  }
+
+  // Subtitle Visual Alerts (Ticket-04 Accessibility)
+  if (!isBenchmark) {
+    // 1. Wind warning (Night 3)
+    if (currentNight === 3 && sim.wind && sim.wind.active && (sim.tick - lastWindSubTick > 360)) {
+      lastWindSubTick = sim.tick;
+      showSubtitle('Cảnh báo: Gió mạnh Đảo Chuông đang nổi lên!', '🌪️', 'alert-warning');
+    }
+    // 2. Ten seconds left before dawn
+    if (sim.time_left_s <= 10 && sim.time_left_s > 0 && !tenSecAlertShown) {
+      tenSecAlertShown = true;
+      showSubtitle('Khẩn cấp: Chỉ còn 10 giây trước Bình Minh!', '⏳', 'alert-urgent');
+    } else if (sim.time_left_s > 10) {
+      tenSecAlertShown = false;
+    }
+    // 3. Low fuel lantern (< 30)
+    const hasLowFuelLantern = sim.lanterns.some(l => l.lit && (l.fuel_sub < 1800));
+    if (hasLowFuelLantern && (sim.tick - lastLowFuelSubTick > 600)) {
+      lastLowFuelSubTick = sim.tick;
+      showSubtitle('Cảnh báo: Có ngọn đèn dầu cạn dưới 30% đang nhấp nháy!', '🏮', 'alert-warning');
+    }
+    // 4. Shade chasing player
+    const hasChasingShade = sim.shades.some(s => s.state === 'chase' && distXZ(s.pos, sim.player.pos) <= 15.0);
+    if (hasChasingShade && (sim.tick - lastShadeChaseSubTick > 480)) {
+      lastShadeChaseSubTick = sim.tick;
+      showSubtitle('Bóng Mực đã phát hiện và đang đuổi theo bạn!', '🦑', 'alert-danger');
     }
   }
 

@@ -3,11 +3,21 @@
 import fs from 'fs';
 import path from 'path';
 import { Simulation } from '../core/simulation.js';
+import { exportLeaderboard } from '../core/leaderboard.js';
 
 function printUsageAndExit(code = 1, msg = '') {
   if (msg) console.error(`Error: ${msg}`);
-  console.error('Usage: node src/cli/headless.js --seed <int> --night <1|2|3> [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>]');
+  console.error('Usage: node src/cli/headless.js --seed <int> --night <1|2|3> [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>] [--export-leaderboard <file.json>]');
   process.exit(code);
+}
+
+// Check for --export-leaderboard
+const exportIdx = process.argv.indexOf('--export-leaderboard');
+if (exportIdx !== -1 && exportIdx + 1 < process.argv.length) {
+  const exportPath = process.argv[exportIdx + 1];
+  exportLeaderboard(exportPath);
+  console.log(`Leaderboard exported to ${exportPath}`);
+  process.exit(0);
 }
 
 // Parse command line arguments

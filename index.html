@@ -19,6 +19,149 @@
       width: 100vw;
       height: 100vh;
     }
+    /* ACCESSIBILITY & TEXT SCALING (Phase 4) */
+    body.large-font-mode {
+      font-size: 22.5px !important; /* 18px * 1.25 */
+    }
+    body.large-font-mode .hud-stat,
+    body.large-font-mode .hud-timer,
+    body.large-font-mode .modal-title,
+    body.large-font-mode .btn {
+      font-size: 1.25em !important;
+    }
+    body.reduce-motion * {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    /* SUBTITLES & DIRECTIONAL ALERTS (Phase 4) */
+    #subtitles-bar {
+      position: absolute;
+      bottom: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(14, 20, 48, 0.92);
+      border: 1px solid rgba(242, 193, 78, 0.6);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      border-radius: 12px;
+      padding: 8px 24px;
+      color: #f5f1e6;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    #subtitles-bar.visible {
+      opacity: 1;
+    }
+    #subtitles-bar.alert-danger {
+      border-color: #ff5a5f;
+      color: #ff9498;
+    }
+    #subtitles-bar.alert-warning {
+      border-color: #f2c14e;
+      color: #fde68a;
+    }
+
+    /* EDGE INDICATOR ARROW FOR INCOMING SHADES */
+    .edge-indicator {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 95;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transform-origin: center center;
+    }
+    .edge-indicator::before {
+      content: '';
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-bottom: 22px solid #38bdf8;
+      filter: drop-shadow(0 0 8px #2563eb);
+    }
+
+    /* LEADERBOARD TABLE STYLES */
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 15px;
+      text-align: left;
+    }
+    .lb-table th {
+      background: rgba(242, 193, 78, 0.15);
+      color: #f2c14e;
+      padding: 10px 12px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(242, 193, 78, 0.3);
+    }
+    .lb-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+    }
+    .lb-table tr:hover td {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .rank-badge {
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 8px;
+      display: inline-block;
+      text-align: center;
+      min-width: 26px;
+    }
+    .rank-1 { background: #ffd700; color: #1e1e1e; }
+    .rank-2 { background: #c0c0c0; color: #1e1e1e; }
+    .rank-3 { background: #cd7f32; color: #1e1e1e; }
+
+    /* KEY REBINDING ROW */
+    .rebind-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .rebind-key-btn {
+      background: rgba(242, 193, 78, 0.15);
+      border: 1px solid rgba(242, 193, 78, 0.4);
+      color: #f2c14e;
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      min-width: 80px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .rebind-key-btn:hover, .rebind-key-btn.listening {
+      background: rgba(242, 193, 78, 0.35);
+      box-shadow: 0 0 10px rgba(242, 193, 78, 0.5);
+      border-color: #f2c14e;
+    }
+    .rebind-key-btn.listening {
+      animation: key-pulse 1s infinite alternate;
+    }
+    @keyframes key-pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); background: #f59e0b; color: #000; }
+    }
+
     #game-canvas {
       width: 100vw;
       height: 100vh;
@@ -652,7 +795,7 @@
   <!-- CONTROLS HINT -->
   <div id="controls-hint">
     🎮 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển &nbsp;|&nbsp; <kbd>Space</kbd> Nhảy &nbsp;|&nbsp; <kbd>Shift</kbd> Lướt (Dash)<br>
-    🏮 <kbd>E</kbd> Thắp Đèn (3 Đom đóm) &nbsp;|&nbsp; ✨ <kbd>F</kbd>/<kbd>Q</kbd> Tỏa Sáng (3 Đom đóm) &nbsp;|&nbsp; <kbd>Esc</kbd>/<kbd>P</kbd> Tạm Dừng
+    🏮 <kbd>E</kbd> Thắp Đèn (10 Đom đóm) &nbsp;|&nbsp; ✨ <kbd>F</kbd>/<kbd>Q</kbd> Tỏa Sáng (3 Đom đóm) &nbsp;|&nbsp; <kbd>Esc</kbd>/<kbd>P</kbd> Tạm Dừng
   </div>
 
   <!-- FLOATING PROMPT -->
@@ -662,6 +805,13 @@
   <div id="offscreen-indicator">
     <div class="indicator-arrow"></div>
   </div>
+
+  <!-- SUBTITLES & DIRECTIONAL ALERTS (Phase 4 Accessibility) -->
+  <div id="subtitles-bar">
+    <span id="subtitles-icon">⚠️</span>
+    <span id="subtitles-text">Chào mừng đến với Đảo Đèn Lồng</span>
+  </div>
+  <div id="edge-indicators-container"></div>
 
   <!-- WELCOME / TITLE SCREEN MODAL -->
   <div id="welcome-screen">
@@ -713,6 +863,12 @@
         </div>
       </div>
 
+      <!-- Quick Buttons: Leaderboard & Accessibility -->
+      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <button id="btn-welcome-leaderboard" class="btn btn-secondary" style="flex: 1; padding: 10px 14px; font-size: 14px;">🏆 Bảng Xếp Hạng</button>
+        <button id="btn-welcome-accessibility" class="btn btn-secondary" style="flex: 1; padding: 10px 14px; font-size: 14px;">⚙️ Trợ Năng & Đổi Phím</button>
+      </div>
+
       <!-- Quick Settings -->
       <div class="welcome-options">
         <div class="settings-row" style="margin: 4px 0;">
@@ -749,7 +905,7 @@
         <button class="level-btn" data-night="3">Đêm 3<br><small>Đảo Chuông</small></button>
       </div>
 
-      <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; margin-bottom: 20px;">
+      <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; margin-bottom: 16px;">
         <div class="settings-row">
           <span>🌓 Độ sáng màn hình:</span>
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -771,6 +927,11 @@
         </div>
       </div>
 
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button id="btn-pause-leaderboard" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;">🏆 Bảng Xếp Hạng</button>
+        <button id="btn-pause-accessibility" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;">⚙️ Trợ Năng & Phím</button>
+      </div>
+
       <div class="btn-group">
         <button id="btn-resume" class="btn">Tiếp Tục Chơi (Esc / P)</button>
         <button id="btn-restart-night" class="btn btn-secondary">Chơi Lại Đêm Này (R)</button>
@@ -779,14 +940,120 @@
     </div>
   </div>
 
-  <!-- GAME OVER / VICTORY MODAL -->
+  <!-- GAME OVER / VICTORY MODAL WITH LEADERBOARD RECORDING -->
   <div id="gameover-modal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title" id="go-title">CHIẾN THẮNG!</div>
       <div class="modal-subtitle" id="go-subtitle">Mây đã thắp sáng các ngọn tháp đèn lồng cổ kính!</div>
+
+      <!-- Player Name Submission Section -->
+      <div id="go-save-score-section" style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; margin: 14px 0; border: 1px solid rgba(242,193,78,0.3);">
+        <div style="font-size: 14px; font-weight: 700; color: #f2c14e; margin-bottom: 6px;">LƯU ĐIỂM VÀO BẢNG XẾP HẠNG:</div>
+        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+          <input type="text" id="player-name-input" maxlength="12" placeholder="Tên (3-12 ký tự)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(242,193,78,0.5); border-radius: 8px; color: #fff; padding: 8px 12px; font-size: 15px; width: 180px; text-align: center;">
+          <button id="btn-save-score" class="btn" style="padding: 8px 16px; font-size: 14px;">Lưu Điểm</button>
+        </div>
+        <div id="save-score-msg" style="font-size: 12px; margin-top: 6px; color: #94a3b8;"></div>
+      </div>
+
       <div class="btn-group">
         <button id="btn-next-night" class="btn">Đêm Kế Tiếp</button>
         <button id="btn-retry-go" class="btn btn-secondary">Chơi Lại</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD MODAL (Phase 4) -->
+  <div id="leaderboard-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 640px; width: 90%;">
+      <div class="modal-title">🏆 BẢNG XẾP HẠNG CỤC BỘ</div>
+      <div class="modal-subtitle">Top 10 Người Giữ Lửa Xuất Sắc Nhất</div>
+      <div style="max-height: 50vh; overflow-y: auto;">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th style="width: 44px; text-align: center;">Hạng</th>
+              <th>Người Chơi</th>
+              <th style="text-align: right;">Điểm Số</th>
+              <th style="text-align: center;">Đêm Thắng</th>
+              <th style="text-align: right;">Thời Điểm</th>
+            </tr>
+          </thead>
+          <tbody id="lb-table-body">
+            <!-- Dynamic rows populated from localStorage / leaderboard.js -->
+          </tbody>
+        </table>
+      </div>
+      <button id="btn-close-leaderboard" class="btn" style="margin-top: 14px;">Đóng</button>
+    </div>
+  </div>
+
+  <!-- ACCESSIBILITY & CONTROLS REBINDING MODAL (Phase 4) -->
+  <div id="accessibility-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 640px; width: 90%; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-title">⚙️ CÀI ĐẶT TRỢ NĂNG & ĐỔI PHÍM</div>
+      <div class="modal-subtitle">Tùy biến điều khiển, cỡ chữ và giảm chuyển động</div>
+
+      <!-- Toggles Section -->
+      <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
+        <div class="settings-row" style="margin: 6px 0;">
+          <span>🔤 Cỡ chữ lớn giao diện (1.25x):</span>
+          <input type="checkbox" id="large-font-toggle" style="width: 20px; height: 20px; accent-color: #f2c14e; cursor: pointer;">
+        </div>
+        <div class="settings-row" style="margin: 6px 0;">
+          <span>🌊 Giảm chuyển động (Tắt rung camera & chớp màn hình):</span>
+          <input type="checkbox" id="reduce-motion-toggle" style="width: 20px; height: 20px; accent-color: #f2c14e; cursor: pointer;">
+        </div>
+      </div>
+
+      <!-- Key Rebinding Section -->
+      <div style="font-size: 15px; font-weight: 700; color: #f2c14e; margin-bottom: 10px; text-align: left;">
+        GÁN PHÍM ĐIỀU KHIỂN (Bấm vào phím để đổi):
+      </div>
+      <div id="rebind-warning" style="display: none; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 10px;"></div>
+
+      <div style="background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 12px; margin-bottom: 16px;">
+        <div class="rebind-row">
+          <span>Tiến lên (Forward):</span>
+          <button class="rebind-key-btn" data-action="forward">W</button>
+        </div>
+        <div class="rebind-row">
+          <span>Lùi lại (Backward):</span>
+          <button class="rebind-key-btn" data-action="backward">S</button>
+        </div>
+        <div class="rebind-row">
+          <span>Sang trái (Left):</span>
+          <button class="rebind-key-btn" data-action="left">A</button>
+        </div>
+        <div class="rebind-row">
+          <span>Sang phải (Right):</span>
+          <button class="rebind-key-btn" data-action="right">D</button>
+        </div>
+        <div class="rebind-row">
+          <span>Nhảy cao (Jump):</span>
+          <button class="rebind-key-btn" data-action="jump">Space</button>
+        </div>
+        <div class="rebind-row">
+          <span>Lướt nhanh (Dash):</span>
+          <button class="rebind-key-btn" data-action="dash">Shift</button>
+        </div>
+        <div class="rebind-row">
+          <span>Thắp / Châm dầu (Interact):</span>
+          <button class="rebind-key-btn" data-action="interact">E</button>
+        </div>
+        <div class="rebind-row">
+          <span>Tỏa Sáng (Pulse):</span>
+          <button class="rebind-key-btn" data-action="pulse">F</button>
+        </div>
+        <div class="rebind-row">
+          <span>Tạm dừng (Pause):</span>
+          <button class="rebind-key-btn" data-action="pause">Escape</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button id="btn-reset-keybinds" class="btn btn-secondary" style="flex: 1;">Khôi Phục Mặc Định</button>
+        <button id="btn-close-accessibility" class="btn" style="flex: 1;">Lưu & Đóng</button>
       </div>
     </div>
   </div>

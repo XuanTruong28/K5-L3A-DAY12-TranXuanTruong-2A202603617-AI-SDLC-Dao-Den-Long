@@ -1,7 +1,7 @@
 // Constants and map definitions for Phase 3 (Ticket-03 - Contract v1.2)
 import { round3 } from './math.js';
 
-export const CONTRACT_VERSION = '1.2';
+export const CONTRACT_VERSION = '1.3';
 
 export const DEFAULT_TUNING = {
   player_speed: 6.0,

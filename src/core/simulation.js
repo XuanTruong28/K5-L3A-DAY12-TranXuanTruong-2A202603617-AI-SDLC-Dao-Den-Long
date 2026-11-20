@@ -15,6 +15,7 @@ export class Simulation {
 
     this.seed = options.seed ?? 12345;
     this.prng = new PRNG(this.seed);
+    this.benchmark = !!options.benchmark;
 
     this.tick = 0;       // Total ticks (increments even when paused)
     this.sim_tick = 0;   // Simulation ticks (freezes when paused)
@@ -34,7 +35,7 @@ export class Simulation {
 
     // Player state
     this.player = {
-      pos: [...this.map.start_pos],
+      pos: this.benchmark ? [0.0, 0.0, 0.0] : [...this.map.start_pos],
       vel: [0.0, 0.0, 0.0],
       grounded: true,
       facing_dir: [0.0, 1.0], // [dx, dz] on XZ plane (+Z)
@@ -639,52 +640,54 @@ export class Simulation {
     }
 
     // Trừ dầu: hao hụt tự nhiên khi đang sáng (1.0 đơn vị/giây = 1 sub-unit/tick)
-    for (const lantern of this.lanterns) {
-      if (lantern.lit) {
-        lantern.fuel_sub -= 1;
+    if (!this.benchmark) {
+      for (const lantern of this.lanterns) {
+        if (lantern.lit) {
+          lantern.fuel_sub -= 1;
+        }
       }
-    }
 
-    // Trừ dầu: Bóng Mực đang drain hút 5 đơn vị/giây (5 sub-units/tick)
-    const drainingShades = this.shades.filter(s => s.state === 'drain').sort((a, b) => a.id.localeCompare(b.id));
-    for (const shade of drainingShades) {
-      const target = this.lanterns.find(l => l.id === shade.target_lantern_id);
-      if (target && target.lit) {
-        target.fuel_sub -= 5;
-        shade.drain_ticks = (shade.drain_ticks || 0) + 1;
-        if (shade.drain_ticks % 60 === 0) {
+      // Trừ dầu: Bóng Mực đang drain hút 5 đơn vị/giây (5 sub-units/tick)
+      const drainingShades = this.shades.filter(s => s.state === 'drain').sort((a, b) => a.id.localeCompare(b.id));
+      for (const shade of drainingShades) {
+        const target = this.lanterns.find(l => l.id === shade.target_lantern_id);
+        if (target && target.lit) {
+          target.fuel_sub -= 5;
+          shade.drain_ticks = (shade.drain_ticks || 0) + 1;
+          if (shade.drain_ticks % 60 === 0) {
+            stepEvents.push({
+              type: 'event',
+              tick: currentTick,
+              name: 'fuel_drain',
+              data: {
+                lantern_id: target.id,
+                shade_id: shade.id,
+                fuel: round1(Math.max(0, target.fuel_sub) / 60.0)
+              }
+            });
+          }
+        }
+      }
+
+      // Ngay sau bước 2: đèn có fuel <= 0 chuyển sang tắt
+      for (const lantern of this.lanterns) {
+        if (lantern.lit && lantern.fuel_sub <= 0) {
+          lantern.fuel_sub = 0;
+          lantern.lit = false;
+          lantern.deposited = 0;
+          lantern.ever_lit = true;
           stepEvents.push({
             type: 'event',
             tick: currentTick,
-            name: 'fuel_drain',
-            data: {
-              lantern_id: target.id,
-              shade_id: shade.id,
-              fuel: round1(Math.max(0, target.fuel_sub) / 60.0)
-            }
+            name: 'lantern_out',
+            data: { lantern_id: lantern.id }
           });
-        }
-      }
-    }
 
-    // Ngay sau bước 2: đèn có fuel <= 0 chuyển sang tắt
-    for (const lantern of this.lanterns) {
-      if (lantern.lit && lantern.fuel_sub <= 0) {
-        lantern.fuel_sub = 0;
-        lantern.lit = false;
-        lantern.deposited = 0;
-        lantern.ever_lit = true;
-        stepEvents.push({
-          type: 'event',
-          tick: currentTick,
-          name: 'lantern_out',
-          data: { lantern_id: lantern.id }
-        });
-
-        // Bóng Mực đang drain đèn này trở về wander
-        for (const shade of this.shades) {
-          if (shade.state === 'drain' && shade.target_lantern_id === lantern.id) {
-            shade.state = 'wander';
+          // Bóng Mực đang drain đèn này trở về wander
+          for (const shade of this.shades) {
+            if (shade.state === 'drain' && shade.target_lantern_id === lantern.id) {
+              shade.state = 'wander';
+            }
           }
         }
       }
@@ -846,8 +849,17 @@ export class Simulation {
       this.player.vel[0] = round3(dx * 60.0);
       this.player.vel[2] = round3(dz * 60.0);
 
+      if (this.benchmark) {
+        this.player.pos[0] = 0.0;
+        this.player.pos[1] = 0.0;
+        this.player.pos[2] = 0.0;
+        this.player.vel[0] = 0.0;
+        this.player.vel[1] = 0.0;
+        this.player.vel[2] = 0.0;
+      }
+
       // 3f. Fall off island check (Y < -10)
-      if (this.player.pos[1] < this.tuning.fall_y && this.player.respawn_wait_ticks <= 0) {
+      if (!this.benchmark && this.player.pos[1] < this.tuning.fall_y && this.player.respawn_wait_ticks <= 0) {
         this.player.flames--;
         const droppedAll = this.player.carried;
         this.player.carried = 0;
@@ -882,7 +894,7 @@ export class Simulation {
     // ----------------------------------------------------
     // 4. Nhặt đom đóm và bùa
     // ----------------------------------------------------
-    if (this.player.respawn_wait_ticks === 0) {
+    if (!this.benchmark && this.player.respawn_wait_ticks === 0) {
       // Motes collection (sức chứa động: this.player.capacity)
       for (const mote of this.motes) {
         if (mote.active && mote.created_tick !== currentTick && this.player.carried < this.player.capacity) {
@@ -1211,24 +1223,28 @@ export class Simulation {
         } else {
           // Ticket-03: Chỉ Bóng Mực ở trạng thái wander mới chọn đèn yếu:
           // đi tới đèn sáng có fuel < 30 gần nhất (bằng nhau thì id nhỏ hơn).
-          const weakLitLanterns = this.lanterns
-            .filter(l => l.lit && l.fuel_sub < 1800)
-            .map(l => ({ lantern: l, dist: distXZ(shade.pos, l.pos) }))
-            .sort((a, b) => a.dist - b.dist || a.lantern.id.localeCompare(b.lantern.id));
+          let bestWeak = null;
+          let bestWeakDist = Infinity;
+          let bestUnlit = null;
+          let bestUnlitDist = Infinity;
 
-          let targetLantern = null;
-          if (weakLitLanterns.length > 0) {
-            targetLantern = weakLitLanterns[0].lantern;
-          } else {
-            // Không có thì đi về đèn tắt gần nhất như trước
-            const unlitLanterns = this.lanterns
-              .filter(l => !l.lit)
-              .map(l => ({ lantern: l, dist: distXZ(shade.pos, l.pos) }))
-              .sort((a, b) => a.dist - b.dist || a.lantern.id.localeCompare(b.lantern.id));
-            if (unlitLanterns.length > 0) {
-              targetLantern = unlitLanterns[0].lantern;
+          for (let li = 0; li < this.lanterns.length; li++) {
+            const l = this.lanterns[li];
+            const d = distXZ(shade.pos, l.pos);
+            if (l.lit && l.fuel_sub < 1800) {
+              if (d < bestWeakDist - 1e-7 || (Math.abs(d - bestWeakDist) <= 1e-7 && (!bestWeak || l.id < bestWeak.id))) {
+                bestWeak = l;
+                bestWeakDist = d;
+              }
+            } else if (!l.lit) {
+              if (d < bestUnlitDist - 1e-7 || (Math.abs(d - bestUnlitDist) <= 1e-7 && (!bestUnlit || l.id < bestUnlit.id))) {
+                bestUnlit = l;
+                bestUnlitDist = d;
+              }
             }
           }
+
+          const targetLantern = bestWeak || bestUnlit;
 
           if (targetLantern) {
             shade.target_lantern_id = targetLantern.id;
@@ -1343,106 +1359,108 @@ export class Simulation {
     // ----------------------------------------------------
     // 9. Chạm: Gió Lạc cướp trước, rồi Bóng Mực gây hit
     // ----------------------------------------------------
-    // Drifters steal first (sorted by id ascending)
-    const sortedDrifters = [...this.drifters].sort((a, b) => a.id.localeCompare(b.id));
-    for (const drifter of sortedDrifters) {
-      if (drifter.state === 'chase' && distXZ(drifter.pos, this.player.pos) <= this.tuning.drifter_hit_radius_xz) {
-        const stolen = Math.min(this.tuning.drifter_steal_max, this.player.carried);
-        drifter.stolen = stolen;
-        this.player.carried -= stolen;
-        drifter.state = 'flee';
-        drifter.flee_ticks = this.tuning.drifter_flee_ticks;
-
-        stepEvents.push({
-          type: 'event',
-          tick: currentTick,
-          name: 'drifter_steal',
-          data: {
-            drifter_id: drifter.id,
-            amount: stolen,
-            carried: this.player.carried
-          }
-        });
-      }
-    }
-
-    // Shades hit (sorted by id ascending)
-    const sortedShades = [...this.shades].sort((a, b) => a.id.localeCompare(b.id));
-    let hitOccurredThisTick = false;
-
-    for (const shade of sortedShades) {
-      const dXZ = distXZ(shade.pos, this.player.pos);
-      const dY = Math.abs(shade.pos[1] - this.player.pos[1]);
-
-      if (dXZ <= this.tuning.shade_hit_radius_xz && dY <= this.tuning.shade_hit_height_diff) {
-        if (
-          this.player.invuln_ticks <= 0 &&
-          !hitOccurredThisTick &&
-          this.player.respawn_wait_ticks === 0 &&
-          (!shade.lantern_push || shade.lantern_push.ticks_left <= 0)
-        ) {
-          hitOccurredThisTick = true;
-          this.player.flames--;
-          this.player.invuln_ticks = this.tuning.invuln_ticks;
-
-          const dropped = Math.floor(this.player.carried / 2);
-          this.player.carried -= dropped;
-
-          // Scatter dropped motes in a ring 1.5 - 2.5m around Mây
-          if (dropped > 0) {
-            for (let i = 0; i < dropped; i++) {
-              const ang = (i / dropped) * Math.PI * 2;
-              const r = 1.5 + (i % 2) * 1.0;
-              this.motes.push({
-                id: `M_drop_${this.nextMoteId++}`,
-                pos: [
-                  round3(this.player.pos[0] + Math.cos(ang) * r),
-                  this.player.pos[1],
-                  round3(this.player.pos[2] + Math.sin(ang) * r)
-                ],
-                kind: 'dropped',
-                ttl_ticks: 480,
-                active: true,
-                created_tick: currentTick
-              });
-            }
-          }
-
-          // Shade recoil 2m over 60 ticks
-          shade.state = 'recoil';
-          shade.recoil_ticks = this.tuning.shade_recoil_ticks;
-          let rDirX = shade.pos[0] - this.player.pos[0];
-          let rDirZ = shade.pos[2] - this.player.pos[2];
-          const rLen = Math.sqrt(rDirX * rDirX + rDirZ * rDirZ);
-          if (rLen > 0.001) {
-            rDirX /= rLen; rDirZ /= rLen;
-          } else {
-            rDirX = 1.0; rDirZ = 0.0;
-          }
-          shade.recoil_dir = [rDirX, rDirZ];
+    if (!this.benchmark) {
+      // Drifters steal first (sorted by id ascending)
+      const sortedDrifters = [...this.drifters].sort((a, b) => a.id.localeCompare(b.id));
+      for (const drifter of sortedDrifters) {
+        if (drifter.state === 'chase' && distXZ(drifter.pos, this.player.pos) <= this.tuning.drifter_hit_radius_xz) {
+          const stolen = Math.min(this.tuning.drifter_steal_max, this.player.carried);
+          drifter.stolen = stolen;
+          this.player.carried -= stolen;
+          drifter.state = 'flee';
+          drifter.flee_ticks = this.tuning.drifter_flee_ticks;
 
           stepEvents.push({
             type: 'event',
             tick: currentTick,
-            name: 'player_hit',
+            name: 'drifter_steal',
             data: {
-              by: 'shade',
-              flames: this.player.flames,
-              dropped,
-              lost: true
+              drifter_id: drifter.id,
+              amount: stolen,
+              carried: this.player.carried
             }
           });
+        }
+      }
 
-          if (this.player.flames <= 0) {
-            this.state = 'lost';
-            this.game_over_reason = 'no_flames';
+      // Shades hit (sorted by id ascending)
+      const sortedShades = [...this.shades].sort((a, b) => a.id.localeCompare(b.id));
+      let hitOccurredThisTick = false;
+
+      for (const shade of sortedShades) {
+        const dXZ = distXZ(shade.pos, this.player.pos);
+        const dY = Math.abs(shade.pos[1] - this.player.pos[1]);
+
+        if (dXZ <= this.tuning.shade_hit_radius_xz && dY <= this.tuning.shade_hit_height_diff) {
+          if (
+            this.player.invuln_ticks <= 0 &&
+            !hitOccurredThisTick &&
+            this.player.respawn_wait_ticks === 0 &&
+            (!shade.lantern_push || shade.lantern_push.ticks_left <= 0)
+          ) {
+            hitOccurredThisTick = true;
+            this.player.flames--;
+            this.player.invuln_ticks = this.tuning.invuln_ticks;
+
+            const dropped = Math.floor(this.player.carried / 2);
+            this.player.carried -= dropped;
+
+            // Scatter dropped motes in a ring 1.5 - 2.5m around Mây
+            if (dropped > 0) {
+              for (let i = 0; i < dropped; i++) {
+                const ang = (i / dropped) * Math.PI * 2;
+                const r = 1.5 + (i % 2) * 1.0;
+                this.motes.push({
+                  id: `M_drop_${this.nextMoteId++}`,
+                  pos: [
+                    round3(this.player.pos[0] + Math.cos(ang) * r),
+                    this.player.pos[1],
+                    round3(this.player.pos[2] + Math.sin(ang) * r)
+                  ],
+                  kind: 'dropped',
+                  ttl_ticks: 480,
+                  active: true,
+                  created_tick: currentTick
+                });
+              }
+            }
+
+            // Shade recoil 2m over 60 ticks
+            shade.state = 'recoil';
+            shade.recoil_ticks = this.tuning.shade_recoil_ticks;
+            let rDirX = shade.pos[0] - this.player.pos[0];
+            let rDirZ = shade.pos[2] - this.player.pos[2];
+            const rLen = Math.sqrt(rDirX * rDirX + rDirZ * rDirZ);
+            if (rLen > 0.001) {
+              rDirX /= rLen; rDirZ /= rLen;
+            } else {
+              rDirX = 1.0; rDirZ = 0.0;
+            }
+            shade.recoil_dir = [rDirX, rDirZ];
+
             stepEvents.push({
               type: 'event',
               tick: currentTick,
-              name: 'game_over',
-              data: { result: 'lost', reason: 'no_flames' }
+              name: 'player_hit',
+              data: {
+                by: 'shade',
+                flames: this.player.flames,
+                dropped,
+                lost: true
+              }
             });
-            return stepEvents;
+
+            if (this.player.flames <= 0) {
+              this.state = 'lost';
+              this.game_over_reason = 'no_flames';
+              stepEvents.push({
+                type: 'event',
+                tick: currentTick,
+                name: 'game_over',
+                data: { result: 'lost', reason: 'no_flames' }
+              });
+              return stepEvents;
+            }
           }
         }
       }
@@ -1451,85 +1469,87 @@ export class Simulation {
     // ----------------------------------------------------
     // 10. Sinh đom đóm, Bóng Mực, Gió Lạc theo lịch
     // ----------------------------------------------------
-    // Mote spawn every 240 ticks if active < 30
-    if (this.scenario?.random_motes !== false && currentTick % 240 === 0) {
-      const activeCount = this.motes.filter(m => m.active).length;
-      if (activeCount < 30) {
-        const spawns = this.map.mote_spawns || [];
-        // Find empty spawn point
-        for (const sp of spawns) {
-          const occupied = this.motes.some(m => m.active && distXZ(m.pos, sp) < 1.0);
-          if (!occupied) {
-            this.motes.push({
-              id: `M${this.nextMoteId++}`,
-              pos: [...sp],
-              kind: 'random',
-              ttl_ticks: null,
-              active: true,
-              created_tick: currentTick
-            });
-            break;
+    if (!this.benchmark) {
+      // Mote spawn every 240 ticks if active < 30
+      if (this.scenario?.random_motes !== false && currentTick % 240 === 0) {
+        const activeCount = this.motes.filter(m => m.active).length;
+        if (activeCount < 30) {
+          const spawns = this.map.mote_spawns || [];
+          // Find empty spawn point
+          for (const sp of spawns) {
+            const occupied = this.motes.some(m => m.active && distXZ(m.pos, sp) < 1.0);
+            if (!occupied) {
+              this.motes.push({
+                id: `M${this.nextMoteId++}`,
+                pos: [...sp],
+                kind: 'random',
+                ttl_ticks: null,
+                active: true,
+                created_tick: currentTick
+              });
+              break;
+            }
           }
         }
       }
-    }
 
-    // Shade spawn schedule
-    if (this.scenario?.random_shades !== false && this.map.shade_schedule) {
-      const sched = this.map.shade_schedule;
-      let shouldSpawnCount = 0;
-      if (currentTick === sched.first_tick) {
-        shouldSpawnCount = sched.first_count;
-      } else if (currentTick > sched.first_tick && (currentTick - sched.first_tick) % sched.interval_ticks === 0) {
-        shouldSpawnCount = 1;
-      }
-
-      if (shouldSpawnCount > 0 && this.shades.length < sched.max_shades) {
-        const count = Math.min(shouldSpawnCount, sched.max_shades - this.shades.length);
-        const spawns = this.map.shade_spawns || [];
-        // Filter spawns >= 15m from player
-        const validSpawns = spawns.filter(sp => distXZ(sp, this.player.pos) >= 15.0);
-        for (let i = 0; i < count; i++) {
-          if (validSpawns.length > 0) {
-            const idx = Math.floor(this.prng.next() * validSpawns.length);
-            const pt = validSpawns[idx];
-            this.shades.push({
-              id: `S${this.nextShadeId++}`,
-              pos: [...pt],
-              state: 'wander',
-              target_lantern_id: null,
-              drain_ticks: 0,
-              stun_ticks: 0,
-              recoil_ticks: 0,
-              recoil_dir: [1, 0],
-              push_ticks: 0,
-              push_dir: [1, 0],
-              push_speed: 0,
-              lantern_push: null,
-              wander_dir: [1, 0]
-            });
-          }
+      // Shade spawn schedule
+      if (this.scenario?.random_shades !== false && this.map.shade_schedule) {
+        const sched = this.map.shade_schedule;
+        let shouldSpawnCount = 0;
+        if (currentTick === sched.first_tick) {
+          shouldSpawnCount = sched.first_count;
+        } else if (currentTick > sched.first_tick && (currentTick - sched.first_tick) % sched.interval_ticks === 0) {
+          shouldSpawnCount = 1;
         }
-      }
-    }
 
-    // Drifter spawn schedule (Night 2 and 3)
-    if (this.scenario?.random_drifters !== false && this.map.drifter_schedule) {
-      const sched = this.map.drifter_schedule;
-      if (currentTick % sched.interval_ticks === 0) {
-        const activeDrifters = this.drifters.filter(d => d.state !== 'removed');
-        if (activeDrifters.length < sched.max_drifters) {
+        if (shouldSpawnCount > 0 && this.shades.length < sched.max_shades) {
+          const count = Math.min(shouldSpawnCount, sched.max_shades - this.shades.length);
           const spawns = this.map.shade_spawns || [];
-          if (spawns.length > 0) {
-            const idx = Math.floor(this.prng.next() * spawns.length);
-            this.drifters.push({
-              id: `D${this.nextDrifterId++}`,
-              pos: [...spawns[idx]],
-              state: 'idle',
-              stolen: 0,
-              flee_ticks: 0,
-              wander_dir: [1, 0]
-            });
+          // Filter spawns >= 15m from player
+          const validSpawns = spawns.filter(sp => distXZ(sp, this.player.pos) >= 15.0);
+          for (let i = 0; i < count; i++) {
+            if (validSpawns.length > 0) {
+              const idx = Math.floor(this.prng.next() * validSpawns.length);
+              const pt = validSpawns[idx];
+              this.shades.push({
+                id: `S${this.nextShadeId++}`,
+                pos: [...pt],
+                state: 'wander',
+                target_lantern_id: null,
+                drain_ticks: 0,
+                stun_ticks: 0,
+                recoil_ticks: 0,
+                recoil_dir: [1, 0],
+                push_ticks: 0,
+                push_dir: [1, 0],
+                push_speed: 0,
+                lantern_push: null,
+                wander_dir: [1, 0]
+              });
+            }
+          }
+        }
+      }
+
+      // Drifter spawn schedule (Night 2 and 3)
+      if (this.scenario?.random_drifters !== false && this.map.drifter_schedule) {
+        const sched = this.map.drifter_schedule;
+        if (currentTick % sched.interval_ticks === 0) {
+          const activeDrifters = this.drifters.filter(d => d.state !== 'removed');
+          if (activeDrifters.length < sched.max_drifters) {
+            const spawns = this.map.shade_spawns || [];
+            if (spawns.length > 0) {
+              const idx = Math.floor(this.prng.next() * spawns.length);
+              this.drifters.push({
+                id: `D${this.nextDrifterId++}`,
+                pos: [...spawns[idx]],
+                state: 'idle',
+                stolen: 0,
+                flee_ticks: 0,
+                wander_dir: [1, 0]
+              });
+            }
           }
         }
       }
@@ -1538,50 +1558,52 @@ export class Simulation {
     // ----------------------------------------------------
     // 11. Xét thắng / thua (Ticket-03: Luật thắng mới)
     // ----------------------------------------------------
-    // Hết Ngọn Lửa luôn thua no_flames trước
-    if (this.player.flames <= 0) {
-      this.state = 'lost';
-      this.game_over_reason = 'no_flames';
-      stepEvents.push({
-        type: 'event',
-        tick: currentTick,
-        name: 'game_over',
-        data: { result: 'lost', reason: 'no_flames' }
-      });
-    } else if (this.time_left_s <= 0) {
-      // Hết giờ (bình minh)
-      const litCount = this.lanterns.filter(l => l.lit).length;
-      const requiredCount = Math.ceil(this.tuning.win_ratio * this.lanterns.length);
-
-      if (litCount >= requiredCount) {
-        this.state = 'won';
-        this.game_over_reason = 'dawn_survived';
-
-        // Điểm bình minh (chỉ khi thắng):
-        // Mỗi đèn đang sáng: +50 + floor(fuel)
-        for (const l of this.lanterns) {
-          if (l.lit) {
-            this.score += 50 + Math.floor(l.fuel_sub / 60.0);
-          }
-        }
-        // Mỗi Ngọn Lửa còn lại: +50
-        this.score += this.player.flames * 50;
-
-        stepEvents.push({
-          type: 'event',
-          tick: currentTick,
-          name: 'game_over',
-          data: { result: 'won', reason: 'dawn_survived' }
-        });
-      } else {
+    if (!this.benchmark) {
+      // Hết Ngọn Lửa luôn thua no_flames trước
+      if (this.player.flames <= 0) {
         this.state = 'lost';
-        this.game_over_reason = 'dawn';
+        this.game_over_reason = 'no_flames';
         stepEvents.push({
           type: 'event',
           tick: currentTick,
           name: 'game_over',
-          data: { result: 'lost', reason: 'dawn' }
+          data: { result: 'lost', reason: 'no_flames' }
         });
+      } else if (this.time_left_s <= 0) {
+        // Hết giờ (bình minh)
+        const litCount = this.lanterns.filter(l => l.lit).length;
+        const requiredCount = Math.ceil(this.tuning.win_ratio * this.lanterns.length);
+
+        if (litCount >= requiredCount) {
+          this.state = 'won';
+          this.game_over_reason = 'dawn_survived';
+
+          // Điểm bình minh (chỉ khi thắng):
+          // Mỗi đèn đang sáng: +50 + floor(fuel)
+          for (const l of this.lanterns) {
+            if (l.lit) {
+              this.score += 50 + Math.floor(l.fuel_sub / 60.0);
+            }
+          }
+          // Mỗi Ngọn Lửa còn lại: +50
+          this.score += this.player.flames * 50;
+
+          stepEvents.push({
+            type: 'event',
+            tick: currentTick,
+            name: 'game_over',
+            data: { result: 'won', reason: 'dawn_survived' }
+          });
+        } else {
+          this.state = 'lost';
+          this.game_over_reason = 'dawn';
+          stepEvents.push({
+            type: 'event',
+            tick: currentTick,
+            name: 'game_over',
+            data: { result: 'lost', reason: 'dawn' }
+          });
+        }
       }
     }
 
