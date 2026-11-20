@@ -198,6 +198,8 @@ export class Simulation {
         return {
           id,
           pos: [...s.pos],
+          tier: s.tier !== undefined ? s.tier : null,
+          island: s.island !== undefined ? s.island : null,
           state,
           target_lantern_id: s.target_lantern_id || null,
           drain_ticks: 0,
@@ -299,13 +301,29 @@ export class Simulation {
       // Tier 2 (center disk r <= 8 at Y = 6)
       if (r <= 8.0) return 6.0;
 
-      // Summit descent ramp/stairs from Tier 2 (Y=6.0 at z=7.5) down to Tier 1 (Y=3.0 at z=11.5)
+      // 4 Summit descent stairs from Tier 2 (Y=6.0 at r=7.5) down to Tier 1 (Y=3.0 at r=11.5)
+      // North Stair (+Z)
       if (Math.abs(x) <= 2.2 && z >= 7.5 && z <= 11.5) {
         const t = (11.5 - z) / (11.5 - 7.5);
         return round3(3.0 + t * 3.0);
       }
+      // South Stair (-Z)
+      if (Math.abs(x) <= 2.2 && z <= -7.5 && z >= -11.5) {
+        const t = (z - (-11.5)) / (-7.5 - (-11.5));
+        return round3(3.0 + t * 3.0);
+      }
+      // East Stair (+X)
+      if (Math.abs(z) <= 2.2 && x >= 7.5 && x <= 11.5) {
+        const t = (11.5 - x) / (11.5 - 7.5);
+        return round3(3.0 + t * 3.0);
+      }
+      // West Stair (-X)
+      if (Math.abs(z) <= 2.2 && x <= -7.5 && x >= -11.5) {
+        const t = (x - (-11.5)) / (-7.5 - (-11.5));
+        return round3(3.0 + t * 3.0);
+      }
 
-      // Ramps at 30 deg and 150 deg (foot at r=30 Y=0, top at r=24 Y=3)
+      // Ramps connecting Tier 1 and Tier 0 (foot at r=30 Y=0, top at r=24 Y=3)
       for (const ramp of this.map.ramps) {
         const rad = (ramp.angle_deg * Math.PI) / 180.0;
         const cosR = Math.cos(rad);
@@ -319,10 +337,10 @@ export class Simulation {
         }
       }
 
-      // Tier 1 (plateau out to r <= 24 at z > 0, Y = 3)
-      if (r <= 24.0 && z > 0) return 3.0;
+      // Tier 1 (circular plateau out to r <= 24, Y = 3)
+      if (r <= 24.0) return 3.0;
 
-      // Tier 0 (whole island Y = 0)
+      // Tier 0 (whole island base Y = 0)
       return 0.0;
     }
 
@@ -332,57 +350,92 @@ export class Simulation {
   // Resolve obstacles (bell tower, cliffs)
   resolveObstacles(currentPos, nextX, nextZ) {
     if (this.night === 3) {
-      const currentY = currentPos[1];
+      if (this.player.in_launch) return [nextX, nextZ];
 
-      // Bell tower cylinder at center of Tier 2 (Y >= 5.5): radius 2.0m, cannot enter
+      const currentY = currentPos[1];
+      const nextR = Math.sqrt(nextX * nextX + nextZ * nextZ);
+
+      // Helper to check if (x, z) is in any of the 4 summit descent stairs
+      const isOnSummitStair = (x, z) => {
+        if (Math.abs(x) <= 2.2 && z >= 7.0 && z <= 12.0) return true;   // North
+        if (Math.abs(x) <= 2.2 && z <= -7.0 && z >= -12.0) return true; // South
+        if (Math.abs(z) <= 2.2 && x >= 7.0 && x <= 12.0) return true;   // East
+        if (Math.abs(z) <= 2.2 && x <= -7.0 && x >= -12.0) return true; // West
+        return false;
+      };
+
+      // Helper to check if (x, z) is on any Tier 1 descent ramp
+      const isOnRamp = (x, z) => {
+        for (const ramp of this.map.ramps) {
+          const rad = (ramp.angle_deg * Math.PI) / 180.0;
+          const cosR = Math.cos(rad);
+          const sinR = Math.sin(rad);
+          const dRad = x * cosR + z * sinR;
+          const dLat = Math.abs(-x * sinR + z * cosR);
+          if (dLat <= ramp.width / 2.0 && dRad >= ramp.r_top - 0.5 && dRad <= ramp.r_bottom + 0.5) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // 1. Tier 2 (Summit Y >= 5.5)
       if (currentY >= 5.5) {
-        const rNext = Math.sqrt(nextX * nextX + nextZ * nextZ);
-        if (rNext < 2.0) {
-          if (rNext > 0.001) {
-            nextX = (nextX / rNext) * 2.0;
-            nextZ = (nextZ / rNext) * 2.0;
+        // Bell tower cylinder at center of Tier 2: radius 2.0m, cannot enter
+        if (nextR < 2.0) {
+          if (nextR > 0.001) {
+            nextX = (nextX / nextR) * 2.0;
+            nextZ = (nextZ / nextR) * 2.0;
           } else {
             nextX = 2.0;
             nextZ = 0.0;
           }
         }
-      }
-
-      // Cliff wall collision when player is at lower elevation
-      const rCur = Math.sqrt(currentPos[0] * currentPos[0] + currentPos[2] * currentPos[2]);
-      const nextR = Math.sqrt(nextX * nextX + nextZ * nextZ);
-
-      // Check Tier 1 cliff (Y = 3.0): if currentY < 2.5, cannot walk into Tier 1 from outside unless on ramp
-      if (currentY < 2.5) {
-        const inTier1Cur = rCur <= 24.0 && currentPos[2] > 0;
-        const inTier1Next = nextR <= 24.0 && nextZ > 0;
-        if (!inTier1Cur && inTier1Next) {
-          let onRamp = false;
-          for (const ramp of this.map.ramps) {
-            const rad = (ramp.angle_deg * Math.PI) / 180.0;
-            const cosR = Math.cos(rad);
-            const sinR = Math.sin(rad);
-            const dRad = nextX * cosR + nextZ * sinR;
-            const dLat = Math.abs(-nextX * sinR + nextZ * cosR);
-            if (dLat <= ramp.width / 2.0 && dRad >= ramp.r_top && dRad <= ramp.r_bottom) {
-              onRamp = true;
-              break;
-            }
-          }
-          if (!onRamp) {
-            // Blocked by cliff of Tier 1
-            nextX = currentPos[0];
-            nextZ = currentPos[2];
-          }
+        // Giữ Mây trong phạm vi Tầng 2: không để trượt khỏi mép r > 8.0 trừ khi đi vào 1 trong 4 cầu thang đi xuống
+        const rAfterTower = Math.sqrt(nextX * nextX + nextZ * nextZ);
+        if (rAfterTower > 8.0 && !isOnSummitStair(nextX, nextZ)) {
+          nextX = (nextX / rAfterTower) * 8.0;
+          nextZ = (nextZ / rAfterTower) * 8.0;
         }
       }
 
-      // Check Tier 2 cliff (Y = 6.0): if currentY < 5.5, cannot walk into Tier 2 from outside unless on summit stairs
-      if (currentY < 5.5 && rCur > 8.0 && nextR <= 8.0) {
-        const onSummitRamp = Math.abs(nextX) <= 2.2 && nextZ >= 7.0 && nextZ <= 12.0;
-        if (!onSummitRamp) {
-          nextX = currentPos[0];
-          nextZ = currentPos[2];
+      // 2. Tier 1 (Middle 2.5 <= Y < 5.5)
+      else if (currentY >= 2.5 && currentY < 5.5) {
+        // Không thể bước vào Tầng 2 (nextR <= 8.0) trừ khi đi lên bằng 4 cầu thang
+        if (nextR <= 8.0 && !isOnSummitStair(nextX, nextZ)) {
+          if (nextR > 0.001) {
+            nextX = (nextX / nextR) * 8.05;
+            nextZ = (nextZ / nextR) * 8.05;
+          } else {
+            nextX = 8.05;
+            nextZ = 0.0;
+          }
+        }
+        // Giữ Mây trong phạm vi Tầng 1: không để rơi xuống Tầng 0 (nextR > 24.0) trừ khi đi vào dốc đá
+        const rCheck = Math.sqrt(nextX * nextX + nextZ * nextZ);
+        if (rCheck > 24.0 && !isOnRamp(nextX, nextZ)) {
+          nextX = (nextX / rCheck) * 24.0;
+          nextZ = (nextZ / rCheck) * 24.0;
+        }
+      }
+
+      // 3. Tier 0 (Base Y < 2.5)
+      else {
+        // Không thể bước vào Tầng 1 (nextR <= 24.0) trừ khi đi lên bằng dốc đá
+        if (nextR <= 24.0 && !isOnRamp(nextX, nextZ)) {
+          if (nextR > 0.001) {
+            nextX = (nextX / nextR) * 24.05;
+            nextZ = (nextZ / nextR) * 24.05;
+          } else {
+            nextX = 24.05;
+            nextZ = 0.0;
+          }
+        }
+        // Giữ Mây trên Đảo 3: không để rơi xuống biển (r > 44.5)
+        const rCheck0 = Math.sqrt(nextX * nextX + nextZ * nextZ);
+        if (rCheck0 > 44.5) {
+          nextX = (nextX / rCheck0) * 44.5;
+          nextZ = (nextZ / rCheck0) * 44.5;
         }
       }
     }
@@ -1195,6 +1248,62 @@ export class Simulation {
             }
           }
         }
+      }
+
+      // Ràng buộc mây đen theo tầng hoặc theo đảo nếu được chỉ định (Ticket-03)
+      if (shade.tier !== null && shade.tier !== undefined) {
+        const r = Math.sqrt(shade.pos[0] * shade.pos[0] + shade.pos[2] * shade.pos[2]);
+        if (shade.tier === 2) {
+          if (r < 2.2) {
+            const sc = r > 0.001 ? 2.2 / r : 1;
+            shade.pos[0] = (shade.pos[0] || 2.2) * sc;
+            shade.pos[2] = (shade.pos[2] || 0) * sc;
+          } else if (r > 7.8) {
+            shade.pos[0] = (shade.pos[0] / r) * 7.8;
+            shade.pos[2] = (shade.pos[2] / r) * 7.8;
+          }
+          shade.pos[1] = 6.0;
+        } else if (shade.tier === 1) {
+          if (r < 8.5) {
+            const sc = r > 0.001 ? 8.5 / r : 1;
+            shade.pos[0] = (shade.pos[0] || 8.5) * sc;
+            shade.pos[2] = (shade.pos[2] || 0) * sc;
+          } else if (r > 23.5) {
+            shade.pos[0] = (shade.pos[0] / r) * 23.5;
+            shade.pos[2] = (shade.pos[2] / r) * 23.5;
+          }
+          shade.pos[1] = 3.0;
+        } else if (shade.tier === 0) {
+          if (r < 24.5) {
+            const sc = r > 0.001 ? 24.5 / r : 1;
+            shade.pos[0] = (shade.pos[0] || 24.5) * sc;
+            shade.pos[2] = (shade.pos[2] || 0) * sc;
+          } else if (r > 43.0) {
+            shade.pos[0] = (shade.pos[0] / r) * 43.0;
+            shade.pos[2] = (shade.pos[2] / r) * 43.0;
+          }
+          shade.pos[1] = 0.0;
+        }
+      } else if (shade.island !== null && shade.island !== undefined) {
+        if (shade.island === 0) {
+          const r = Math.sqrt(shade.pos[0] * shade.pos[0] + shade.pos[2] * shade.pos[2]);
+          if (r > 26.5) {
+            shade.pos[0] = (shade.pos[0] / r) * 26.5;
+            shade.pos[2] = (shade.pos[2] / r) * 26.5;
+          }
+          shade.pos[1] = 0.0;
+        } else if (shade.island === 1) {
+          const dx = shade.pos[0] - 70.0;
+          const dz = shade.pos[2];
+          const r = Math.sqrt(dx * dx + dz * dz);
+          if (r > 26.5) {
+            shade.pos[0] = 70.0 + (dx / r) * 26.5;
+            shade.pos[2] = (dz / r) * 26.5;
+          }
+          shade.pos[1] = 0.0;
+        }
+      } else if (this.night === 3) {
+        shade.pos[1] = Math.max(0.0, this.getGroundHeight(shade.pos[0], shade.pos[2]));
       }
     }
 

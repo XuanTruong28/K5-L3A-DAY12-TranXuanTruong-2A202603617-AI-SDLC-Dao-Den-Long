@@ -218,9 +218,11 @@ export const NIGHT3_MAP = {
     { level: 2, y: 6.0, radius: 8.0 }
   ],
   ramps: [
-    // 2 radial ramps at 30 deg and 150 deg, width 3m (half-width 1.5m), r from 30 down to 24 (y from 0 to 3)
-    { angle_deg: 30.0, r_bottom: 30.0, r_top: 24.0, width: 3.0, y_bottom: 0.0, y_top: 3.0 },
-    { angle_deg: 150.0, r_bottom: 30.0, r_top: 24.0, width: 3.0, y_bottom: 0.0, y_top: 3.0 }
+    // 4 radial ramps at 30, 150, 210, 330 deg, width 3.2m, r from 30 down to 24 (y from 0 to 3)
+    { angle_deg: 30.0, r_bottom: 30.0, r_top: 24.0, width: 3.2, y_bottom: 0.0, y_top: 3.0 },
+    { angle_deg: 150.0, r_bottom: 30.0, r_top: 24.0, width: 3.2, y_bottom: 0.0, y_top: 3.0 },
+    { angle_deg: 210.0, r_bottom: 30.0, r_top: 24.0, width: 3.2, y_bottom: 0.0, y_top: 3.0 },
+    { angle_deg: 330.0, r_bottom: 30.0, r_top: 24.0, width: 3.2, y_bottom: 0.0, y_top: 3.0 }
   ],
   jump_pads: [
     {
