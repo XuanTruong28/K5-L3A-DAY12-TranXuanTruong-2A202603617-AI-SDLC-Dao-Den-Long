@@ -370,8 +370,8 @@ function animate() {
     let mz = 0;
     if (keys['w'] || keys['arrowup']) mz += 1;
     if (keys['s'] || keys['arrowdown']) mz -= 1;
-    if (keys['d'] || keys['arrowright']) mx += 1;
-    if (keys['a'] || keys['arrowleft']) mx -= 1;
+    if (keys['d'] || keys['arrowright']) mx -= 1;
+    if (keys['a'] || keys['arrowleft']) mx += 1;
 
     const interact = !!(keys['e'] || keys[' ']);
     const pulse = !!(keys['f'] || keys['q']);
