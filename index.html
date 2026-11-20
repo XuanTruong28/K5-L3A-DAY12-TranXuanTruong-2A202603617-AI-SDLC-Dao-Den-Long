@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đảo Đèn Lồng — Đêm 1</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #0b0c16;
+      color: #f3eedd;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #game-canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    #hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .hud-card {
+      background: rgba(14, 18, 32, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 215, 0, 0.25);
+      border-radius: 10px;
+      padding: 10px 16px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    .hud-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .hud-flames {
+      color: #ff6b6b;
+      font-size: 20px;
+      letter-spacing: 2px;
+    }
+    .hud-motes {
+      color: #ffd166;
+    }
+    .hud-lanterns {
+      color: #ff9f1c;
+    }
+    .hud-score {
+      color: #06d6a0;
+      font-weight: 700;
+    }
+    .hud-timer {
+      color: #118ab2;
+    }
+    #controls-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      z-index: 10;
+      font-size: 13px;
+      color: rgba(240, 240, 255, 0.7);
+      background: rgba(14, 18, 32, 0.7);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+    }
+    #dialog-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(8, 10, 20, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(6px);
+    }
+    #dialog-box {
+      background: #151928;
+      border: 2px solid #ffbe0b;
+      border-radius: 14px;
+      padding: 32px 48px;
+      text-align: center;
+      max-width: 480px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+    #dialog-title {
+      font-size: 28px;
+      margin-bottom: 12px;
+      color: #ffbe0b;
+    }
+    #dialog-msg {
+      font-size: 16px;
+      margin-bottom: 24px;
+      color: #e0e2ec;
+      line-height: 1.5;
+    }
+    .btn-restart {
+      background: linear-gradient(135deg, #ff9f1c, #ffbe0b);
+      color: #151928;
+      font-weight: bold;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn-restart:hover {
+      opacity: 0.9;
+      transform: scale(1.04);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-card">
+      <div class="hud-row">
+        <span>Mây (Máu):</span>
+        <span id="flames-display" class="hud-flames">❤❤❤</span>
+      </div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-row">
+        <span>Đom đóm mang theo:</span>
+        <span id="motes-display" class="hud-motes">✨ 0 / 5</span>
+      </div>
+      <div class="hud-row" style="margin-top: 6px;">
+        <span>Đèn lồng thắp sáng:</span>
+        <span id="lanterns-display" class="hud-lanterns">🏮 0 / 5</span>
+      </div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-row">
+        <span>Thời gian còn:</span>
+        <span id="timer-display" class="hud-timer">⏳ 05:00</span>
+      </div>
+      <div class="hud-row" style="margin-top: 6px;">
+        <span>Điểm số:</span>
+        <span id="score-display" class="hud-score">🏆 0</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls-hint">
+    🎮 <b>Điều khiển:</b> [W, A, S, D] Di chuyển &nbsp;|&nbsp; [E / Space] Thắp Đèn Lồng &nbsp;|&nbsp; [F / Q] Tỏa Sáng (Pulse) &nbsp;|&nbsp; Giữ chuột phải để xoay Camera
+  </div>
+
+  <div id="dialog-overlay">
+    <div id="dialog-box">
+      <h2 id="dialog-title">Chiến Thắng!</h2>
+      <p id="dialog-msg">Mây đã thắp sáng toàn bộ 5 Đèn Lồng Lớn!</p>
+      <button id="btn-replay" class="btn-restart">Chơi Lại (R)</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/render/main.js"></script>
+</body>
+</html>

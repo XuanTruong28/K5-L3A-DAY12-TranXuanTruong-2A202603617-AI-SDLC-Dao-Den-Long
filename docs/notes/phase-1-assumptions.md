@@ -1,0 +1,41 @@
+# Ghi Chú Giả Định & Đặc Tả — Phase 1 (PRD-0)
+
+- **Màn chơi:** Đêm 1 — Đảo Bến (hòn đảo tròn bán kính $R = 35\text{ m}$).
+- **Người chơi (Mây):**
+  - Tọa độ xuất phát: `[0.000, 0.000, 0.000]`
+  - Tốc độ di chuyển `player_speed`: $5.0\text{ m/s}$ ($5.0 / 60 \approx 0.0833\text{ m/tick}$).
+  - Sức chứa đom đóm `carry_capacity`: $5$ đốm sáng.
+  - Số mạng ban đầu `flames`: $3$ mạng.
+  - Thời gian bất tử sau khi trúng đòn `invuln_s`: $1.5\text{ s}$ ($90$ ticks).
+  - Tỉ lệ rơi đom đóm khi bị đánh `hit_drop_ratio`: $0.5$ (làm tròn xuống nếu lẻ).
+- **Đèn Lồng Lớn (Lanterns):**
+  - Số lượng: $5$ chiếc (`L1` đến `L5`), phân bố đều quanh đảo tại bán kính $25\text{ m}$:
+    - $L1$: `[0.000, 0.000, 25.000]` (góc $0^\circ$)
+    - $L2$: `[23.776, 0.000, 7.725]` (góc $72^\circ$)
+    - $L3$: `[14.695, 0.000, -20.225]` (góc $144^\circ$)
+    - $L4$: `[-14.695, 0.000, -20.225]` (góc $216^\circ$)
+    - $L5$: `[-23.776, 0.000, 7.725]` (góc $288^\circ$)
+  - Chi phí thắp mỗi đèn `lantern_cost`: $3$ đom đóm.
+  - Bán kính nạp `interact_radius`: $2.5\text{ m}$.
+  - Vùng an toàn quanh đèn đã thắp hoặc chưa thắp `safe_radius`: $4.0\text{ m}$ (Bóng Mực bị đẩy bật khỏi vùng này).
+- **Đom Đóm (Motes):**
+  - Bán kính nhặt `pickup_radius`: $1.5\text{ m}$.
+  - Sinh ngẫu nhiên trên đảo theo seed nếu `random_motes: true`.
+- **Kỹ năng Tỏa Sáng (Pulse):**
+  - Chi phí `pulse_cost`: $1$ đom đóm đang mang.
+  - Bán kính tác dụng `pulse_radius`: $6.0\text{ m}$.
+  - Thời gian choáng Bóng Mực `pulse_stun_s`: $3.0\text{ s}$ ($180$ ticks).
+  - Đẩy lùi Bóng Mực `pulse_push_m`: $3.0\text{ m}$.
+  - Hồi chiêu `pulse_cooldown_s`: $2.0\text{ s}$ ($120$ ticks).
+- **Bóng Mực (Shades):**
+  - Tốc độ di chuyển `shade_speed`: $3.2\text{ m/s}$ (chậm hơn người chơi $5.0\text{ m/s}$ để người chơi có thể khéo léo né tránh).
+  - Bán kính va chạm `shade_hit_radius`: $1.2\text{ m}$.
+  - Trạng thái cơ bản: `chase` (đuổi theo người chơi), `stunned` (bị choáng không thể di chuyển), `flee` (bị đẩy ra xa khỏi vùng an toàn hoặc khi bị pulse).
+- **Thời lượng & Điểm số:**
+  - Thời lượng đêm `night1_duration_s`: $300\text{ s}$ ($18000$ ticks).
+  - `score.per_mote`: $10$
+  - `score.per_lantern`: $200$
+  - `score.per_stun`: $30$
+  - `score.per_second_left`: $5$
+  - `score.per_flame_left`: $100$
+- **Rơi khỏi đảo `fall_enabled`:** `false` (không rơi).
