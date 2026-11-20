@@ -404,14 +404,18 @@ export class Simulation {
       return;
     }
 
-    // 1800 ticks cycle: ticks 0..299 active
+    // 1800 ticks cycle (30s):
+    // 0..1499 (first 25s): calm
+    // 1500..1799 (last 5s): active wind gust!
     const cycleTick = this.sim_tick % this.tuning.wind_cycle_ticks;
-    if (cycleTick === 0 || this.sim_tick === 1) {
+    const gustStart = this.tuning.wind_cycle_ticks - this.tuning.wind_duration_ticks;
+
+    if (cycleTick === gustStart || this.sim_tick === 1) {
       // Pick deterministic random direction for the new gust
       this.wind.gust_dir_deg = round3(this.prng.next() * 360.0);
     }
 
-    if (cycleTick < this.tuning.wind_duration_ticks) {
+    if (cycleTick >= gustStart) {
       this.wind.active = true;
       this.wind.dir_deg = this.wind.gust_dir_deg;
     } else {

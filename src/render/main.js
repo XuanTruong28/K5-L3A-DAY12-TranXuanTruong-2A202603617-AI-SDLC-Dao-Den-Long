@@ -194,6 +194,45 @@ const goTitle = document.getElementById('go-title');
 const goSubtitle = document.getElementById('go-subtitle');
 const btnNextNight = document.getElementById('btn-next-night');
 const btnRetryGo = document.getElementById('btn-retry-go');
+const btnToWelcome = document.getElementById('btn-to-welcome');
+
+// Welcome / Title Screen elements
+const welcomeScreen = document.getElementById('welcome-screen');
+const btnStartGame = document.getElementById('btn-start-game');
+const welcomeLevelBtns = document.querySelectorAll('.welcome-level-btn');
+const welcomeVolumeSlider = document.getElementById('welcome-volume-slider');
+const welcomeColorblindToggle = document.getElementById('welcome-colorblind-toggle');
+
+// Brightness Adjustment (Clamped between 70% and 140%)
+const pauseBrightnessSlider = document.getElementById('pause-brightness-slider');
+const pauseBrightnessVal = document.getElementById('pause-brightness-val');
+const welcomeBrightnessSlider = document.getElementById('welcome-brightness-slider');
+const welcomeBrightnessVal = document.getElementById('welcome-brightness-val');
+
+let screenBrightness = parseInt(localStorage.getItem('dao_den_long_brightness') || '100', 10);
+if (isNaN(screenBrightness)) screenBrightness = 100;
+
+function setScreenBrightness(val) {
+  screenBrightness = Math.max(70, Math.min(140, parseInt(val, 10) || 100));
+  localStorage.setItem('dao_den_long_brightness', screenBrightness.toString());
+  canvas.style.filter = `brightness(${screenBrightness / 100.0})`;
+  if (pauseBrightnessSlider) pauseBrightnessSlider.value = screenBrightness;
+  if (welcomeBrightnessSlider) welcomeBrightnessSlider.value = screenBrightness;
+  if (pauseBrightnessVal) pauseBrightnessVal.textContent = `${screenBrightness}%`;
+  if (welcomeBrightnessVal) welcomeBrightnessVal.textContent = `${screenBrightness}%`;
+}
+setScreenBrightness(screenBrightness);
+
+if (pauseBrightnessSlider) {
+  pauseBrightnessSlider.addEventListener('input', (e) => setScreenBrightness(e.target.value));
+}
+if (welcomeBrightnessSlider) {
+  welcomeBrightnessSlider.addEventListener('input', (e) => setScreenBrightness(e.target.value));
+}
+
+// Wind Alert Banner (Night 3)
+const windAlertBanner = document.getElementById('wind-alert-banner');
+const windAlertText = document.getElementById('wind-alert-text');
 
 let mouseSensitivity = parseFloat(localStorage.getItem('dao_den_long_sens') || '1.0');
 mouseSensSlider.value = Math.round(mouseSensitivity * 100);
@@ -202,7 +241,17 @@ volumeSlider.value = Math.round(sound.volume * 100);
 volumeSlider.addEventListener('input', (e) => {
   sound.init();
   sound.setVolume(e.target.value / 100);
+  if (welcomeVolumeSlider) welcomeVolumeSlider.value = e.target.value;
 });
+if (welcomeVolumeSlider) {
+  welcomeVolumeSlider.value = Math.round(sound.volume * 100);
+  welcomeVolumeSlider.addEventListener('input', (e) => {
+    sound.init();
+    sound.setVolume(e.target.value / 100);
+    volumeSlider.value = e.target.value;
+  });
+}
+
 mouseSensSlider.addEventListener('input', (e) => {
   mouseSensitivity = e.target.value / 100;
   localStorage.setItem('dao_den_long_sens', mouseSensitivity.toString());
@@ -211,15 +260,54 @@ mouseSensSlider.addEventListener('input', (e) => {
 // Colorblind Accessible Mode (Ticket-03)
 const colorblindToggle = document.getElementById('colorblind-toggle');
 let isColorblind = localStorage.getItem('dao_den_long_colorblind') === 'true';
+
+function updateColorblindMode(enabled) {
+  isColorblind = enabled;
+  localStorage.setItem('dao_den_long_colorblind', isColorblind ? 'true' : 'false');
+  document.body.classList.toggle('colorblind-mode', isColorblind);
+  if (colorblindToggle) colorblindToggle.checked = isColorblind;
+  if (welcomeColorblindToggle) welcomeColorblindToggle.checked = isColorblind;
+}
+
 if (colorblindToggle) {
   colorblindToggle.checked = isColorblind;
-  colorblindToggle.addEventListener('change', (e) => {
-    isColorblind = e.target.checked;
-    localStorage.setItem('dao_den_long_colorblind', isColorblind ? 'true' : 'false');
-    document.body.classList.toggle('colorblind-mode', isColorblind);
-  });
+  colorblindToggle.addEventListener('change', (e) => updateColorblindMode(e.target.checked));
+}
+if (welcomeColorblindToggle) {
+  welcomeColorblindToggle.checked = isColorblind;
+  welcomeColorblindToggle.addEventListener('change', (e) => updateColorblindMode(e.target.checked));
 }
 document.body.classList.toggle('colorblind-mode', isColorblind);
+
+// Game Started state
+let gameStarted = false;
+
+if (btnStartGame) {
+  btnStartGame.addEventListener('click', () => {
+    sound.init();
+    gameStarted = true;
+    welcomeScreen.style.display = 'none';
+    lastTime = performance.now();
+    accumulator = 0;
+  });
+}
+
+if (btnToWelcome) {
+  btnToWelcome.addEventListener('click', () => {
+    gameStarted = false;
+    pauseModal.style.display = 'none';
+    welcomeScreen.style.display = 'flex';
+  });
+}
+
+welcomeLevelBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const n = parseInt(btn.getAttribute('data-night'), 10);
+    welcomeLevelBtns.forEach(b => b.classList.toggle('active', parseInt(b.getAttribute('data-night'), 10) === n));
+    levelBtns.forEach(b => b.classList.toggle('active', parseInt(b.getAttribute('data-night'), 10) === n));
+    initGame(n);
+  });
+});
 
 // ==========================================
 // 3. THREE.JS SCENE, CAMERA, RENDERER, LIGHTING
@@ -384,16 +472,47 @@ const sharedGrassMat = new THREE.MeshStandardMaterial({
 });
 
 // ==========================================
-// 4. MÂY 3D CHARACTER MODEL WITH HANDHELD LANTERN
+// 4. MÂY 3D CHARACTER MODEL (BLACK WITH GLOWING BLUE-PURPLE OUTLINE & AURA)
 // ==========================================
 function createMayCharacter() {
   const group = new THREE.Group();
 
-  const tunicMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.55 });
-  const scarfMat = new THREE.MeshStandardMaterial({ color: 0xc8102e, roughness: 0.45 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfbe, roughness: 0.65 });
-  const hatMat = new THREE.MeshStandardMaterial({ color: 0xdeb841, roughness: 0.5 });
-  const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.6, roughness: 0.3 });
+  // Midnight black tunic with subtle deep purple undertone
+  const tunicMat = new THREE.MeshStandardMaterial({
+    color: 0x10121a,
+    roughness: 0.35,
+    metalness: 0.15,
+    emissive: 0x2e1065,
+    emissiveIntensity: 0.35
+  });
+
+  // Glowing blue-purple trim and highlights
+  const purpleBlueTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x00b3ff,
+    emissive: 0x7a3cff,
+    emissiveIntensity: 1.0,
+    roughness: 0.2
+  });
+
+  // Scarf & cape in shadow violet with vivid purple-blue emissive
+  const scarfMat = new THREE.MeshStandardMaterial({
+    color: 0x181028,
+    emissive: 0x7c3aed,
+    emissiveIntensity: 0.8,
+    roughness: 0.35
+  });
+
+  // Head in midnight shadow
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0x151620,
+    roughness: 0.55
+  });
+
+  // Black conical hat
+  const hatMat = new THREE.MeshStandardMaterial({
+    color: 0x12141c,
+    roughness: 0.5
+  });
 
   // Torso / Poncho (Smooth curved bell shape)
   const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.44, 0.75, 18), tunicMat);
@@ -401,16 +520,35 @@ function createMayCharacter() {
   bodyMesh.castShadow = true;
   group.add(bodyMesh);
 
-  // Red Scarf / Ribbon at neck
+  // Glowing blue-purple rim at bottom edge of poncho
+  const tunicHemRim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.024, 8, 28), purpleBlueTrimMat);
+  tunicHemRim.rotation.x = Math.PI / 2;
+  tunicHemRim.position.y = 0.18;
+  group.add(tunicHemRim);
+
+  // Scarf / Ribbon at neck
   const scarfMesh = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.065, 12, 24), scarfMat);
   scarfMesh.rotation.x = Math.PI / 2;
   scarfMesh.position.y = 0.92;
   group.add(scarfMesh);
 
-  // Fluttering Cape tails
-  const capeTail = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.52), new THREE.MeshStandardMaterial({ color: 0xc8102e, side: THREE.DoubleSide }));
+  // Fluttering Cape tails in shadow violet with glowing edge
+  const capeTail = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.24, 0.54),
+    new THREE.MeshStandardMaterial({
+      color: 0x120d22,
+      emissive: 0x6366f1,
+      emissiveIntensity: 0.7,
+      side: THREE.DoubleSide
+    })
+  );
   capeTail.position.set(0, 0.75, -0.32);
   capeTail.rotation.x = 0.2;
+
+  const capeEdge = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.028, 0.02), purpleBlueTrimMat);
+  capeEdge.position.y = -0.27;
+  capeTail.add(capeEdge);
+
   group.add(capeTail);
   group.userData.capeTail = capeTail;
 
@@ -420,35 +558,35 @@ function createMayCharacter() {
   headMesh.castShadow = true;
   group.add(headMesh);
 
-  // Stylized Glowing Eyes
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfff6c2 });
+  // Stylized Glowing Cyan-Blue Eyes
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
   const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), eyeMat);
   leftEye.position.set(0.085, 1.12, 0.2);
   const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), eyeMat);
   rightEye.position.set(-0.085, 1.12, 0.2);
   group.add(leftEye, rightEye);
 
-  // Vietnamese Nón Lá Conical Hat
+  // Vietnamese Nón Lá Conical Hat (Midnight Black)
   const hatMesh = new THREE.Mesh(new THREE.ConeGeometry(0.56, 0.28, 24), hatMat);
   hatMesh.position.y = 1.32;
   hatMesh.castShadow = true;
   group.add(hatMesh);
 
-  // Golden weave ring on hat
-  const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.022, 8, 24), goldTrimMat);
+  // Glowing blue-purple weave ring on hat
+  const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.025, 8, 32), purpleBlueTrimMat);
   hatBand.rotation.x = Math.PI / 2;
   hatBand.position.y = 1.18;
   group.add(hatBand);
 
   // Silk tassel on hat apex
-  const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.035, 0.18, 8), scarfMat);
+  const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.035, 0.18, 8), purpleBlueTrimMat);
   tassel.position.set(0.05, 1.4, -0.05);
   tassel.rotation.z = -0.3;
   group.add(tassel);
 
-  // Wooden shoes/feet
+  // Dark obsidian wooden shoes/feet
   const footGeo = new THREE.BoxGeometry(0.12, 0.08, 0.22);
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.8 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x1a1a24, roughness: 0.8 });
   const leftFoot = new THREE.Mesh(footGeo, woodMat);
   leftFoot.position.set(0.14, 0.04, 0);
   const rightFoot = new THREE.Mesh(footGeo, woodMat);
@@ -457,13 +595,29 @@ function createMayCharacter() {
   group.userData.leftFoot = leftFoot;
   group.userData.rightFoot = rightFoot;
 
+  // Luminous Blue-Purple Mystic Aura Ring under feet
+  const auraRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.36, 0.45, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0x7a3cff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false
+    })
+  );
+  auraRing.rotation.x = -Math.PI / 2;
+  auraRing.position.y = 0.02;
+  group.add(auraRing);
+  group.userData.auraRing = auraRing;
+
   // ----------------- HANDHELD SMALL LANTERN (ĐÈN LỒNG NHỎ TRÊN TAY) -----------------
   const handGroup = new THREE.Group();
   handGroup.position.set(0.38, 0.65, 0.22);
 
   const handleMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(0.015, 0.015, 0.45, 8),
-    new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.7 })
+    new THREE.MeshStandardMaterial({ color: 0x241d30, roughness: 0.7 })
   );
   handleMesh.rotation.x = 0.5;
   handleMesh.rotation.z = -0.3;
@@ -473,32 +627,32 @@ function createMayCharacter() {
   miniLantern.position.set(0.08, -0.15, 0.15);
 
   const miniBodyMat = new THREE.MeshStandardMaterial({
-    color: 0xc8102e,
-    emissive: new THREE.Color(0xff4433),
-    emissiveIntensity: 0.6,
-    roughness: 0.4
+    color: 0x1c1228,
+    emissive: new THREE.Color(0x8b5cf6),
+    emissiveIntensity: 0.85,
+    roughness: 0.35
   });
   const miniBody = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.22, 12), miniBodyMat);
   miniLantern.add(miniBody);
 
-  const miniCap = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.08, 8), goldTrimMat);
+  const miniCap = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.08, 8), purpleBlueTrimMat);
   miniCap.position.y = 0.13;
   miniLantern.add(miniCap);
 
-  const miniTassel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.02, 0.12, 6), scarfMat);
+  const miniTassel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.02, 0.12, 6), purpleBlueTrimMat);
   miniTassel.position.y = -0.16;
   miniLantern.add(miniTassel);
 
-  // Glow light inside small lantern (castShadow = false to avoid atlas issues)
-  const heldLight = new THREE.PointLight(0xffaa44, 1.2, 5.0);
+  // Glow light inside small lantern (mystical blue-purple)
+  const heldLight = new THREE.PointLight(0x818cf8, 1.4, 5.5);
   heldLight.position.set(0, 0, 0);
   miniLantern.add(heldLight);
 
   const heldGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: moteGlowTexture,
-    color: 0xffc107,
+    color: 0x7c3aed,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.75,
     depthWrite: false,
     fog: false,
     blending: THREE.AdditiveBlending
@@ -1604,6 +1758,12 @@ function initGame(night = 1) {
     const bNight = parseInt(btn.getAttribute('data-night'), 10);
     btn.classList.toggle('active', bNight === night);
   });
+  if (typeof welcomeLevelBtns !== 'undefined') {
+    welcomeLevelBtns.forEach(btn => {
+      const bNight = parseInt(btn.getAttribute('data-night'), 10);
+      btn.classList.toggle('active', bNight === night);
+    });
+  }
 
   buildIslandTerrain(night);
 
@@ -2002,6 +2162,22 @@ function animate(now) {
 
   const delta = Math.min((now - lastTime) / 1000.0, 0.1);
   lastTime = now;
+
+  if (!gameStarted) {
+    accumulator = 0;
+    // Gentle cinematic orbiting camera around island & Mây while on Welcome Screen
+    camYaw += delta * 0.12;
+    const orbDist = 13.5;
+    const orbHeight = 5.5;
+    const cx = mayMesh.position.x - Math.sin(camYaw) * Math.cos(0.4) * orbDist;
+    const cz = mayMesh.position.z - Math.cos(camYaw) * Math.cos(0.4) * orbDist;
+    const cy = mayMesh.position.y + orbHeight;
+    camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.08);
+    camera.lookAt(mayMesh.position.x, mayMesh.position.y + 1.2, mayMesh.position.z);
+    renderer.render(scene, camera);
+    return;
+  }
+
   accumulator += delta;
 
   while (accumulator >= TICK_DT) {
@@ -2096,6 +2272,12 @@ function animate(now) {
   const heldGlowIntensity = 0.6 + carried * 0.35;
   mayMesh.userData.heldLight.intensity = heldGlowIntensity;
   mayMesh.userData.miniBodyMat.emissiveIntensity = 0.5 + carried * 0.4;
+
+  // Luminous Blue-Purple Aura Ring rotation & breathing pulse
+  if (mayMesh.userData.auraRing) {
+    mayMesh.userData.auraRing.rotation.z += delta * 1.5;
+    mayMesh.userData.auraRing.material.opacity = 0.65 + Math.sin(now * 0.005) * 0.15;
+  }
 
   // Smooth Third-Person Camera Follow
   const targetCamX = mayMesh.position.x - Math.sin(camYaw) * Math.cos(camPitch) * camDist;
@@ -2423,6 +2605,17 @@ function animate(now) {
     }
   } else {
     offscreenIndicator.style.display = 'none';
+  }
+
+  // Night 3 Wind Indicator & Visual Feedback
+  if (windAlertBanner) {
+    if (currentNight === 3 && sim.wind && sim.wind.active) {
+      windAlertBanner.style.display = 'flex';
+      const dirDeg = Math.round(sim.wind.dir_deg);
+      windAlertText.textContent = `🌪️ GIÓ ĐẢO CHUÔNG: Đang thổi mạnh (hướng ${dirDeg}°)!`;
+    } else {
+      windAlertBanner.style.display = 'none';
+    }
   }
 
   // Render Circular Minimap

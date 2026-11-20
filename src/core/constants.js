@@ -205,7 +205,7 @@ export const NIGHT3_MAP = {
   name: 'Đảo Chuông',
   duration_s: 300,
   radius: 45.0,
-  start_pos: [0.0, 0.0, 0.0],
+  start_pos: [0.0, 6.0, 3.5], // Firmly on Tier 2 (Y=6.0) at Z=+3.5m, safely outside Bell Tower cylinder (r=2.0m)
   start_facing: [0, 0, 1], // +Z
   bell_tower: {
     center: [0.0, 6.0, 0.0],
