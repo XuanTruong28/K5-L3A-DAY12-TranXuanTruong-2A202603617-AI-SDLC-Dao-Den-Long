@@ -90,7 +90,10 @@ export class Simulation {
     if (this.scenario) {
       this.applyScenario(this.scenario);
     } else {
-      this.spawnInitialMotes(20);
+      this.spawnInitialMotes(options.initial_motes ?? 20);
+      if (options.initial_shades) {
+        this.spawnInitialShades(options.initial_shades);
+      }
     }
   }
 
@@ -214,6 +217,31 @@ export class Simulation {
         active: true,
         created_tick: 0
       });
+    }
+  }
+
+  // Spawn initial shades
+  spawnInitialShades(count = 2) {
+    const spawns = this.map.shade_spawns || [];
+    const validSpawns = spawns.filter(sp => distXZ(sp, this.player.pos) >= 12.0);
+    const pool = validSpawns.length > 0 ? validSpawns : spawns;
+    for (let i = 0; i < count; i++) {
+      if (pool.length > 0) {
+        const pt = pool[i % pool.length];
+        this.shades.push({
+          id: `S${this.nextShadeId++}`,
+          pos: [...pt],
+          state: 'chase',
+          stun_ticks: 0,
+          recoil_ticks: 0,
+          recoil_dir: [1, 0],
+          push_ticks: 0,
+          push_dir: [1, 0],
+          push_speed: 0,
+          lantern_push: null,
+          wander_dir: [1, 0]
+        });
+      }
     }
   }
 

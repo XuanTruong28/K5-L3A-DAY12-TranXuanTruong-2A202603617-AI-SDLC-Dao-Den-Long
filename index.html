@@ -360,6 +360,64 @@
       width: 150px;
       accent-color: #f2c14e;
     }
+
+    /* CIRCULAR MINIMAP */
+    #minimap-panel {
+      position: absolute;
+      top: 80px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #minimap-canvas {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(14, 24, 56, 0.9) 0%, rgba(8, 12, 30, 0.95) 100%);
+      border: 2px solid rgba(242, 193, 78, 0.6);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(242, 193, 78, 0.25);
+    }
+    .minimap-legend {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(245, 241, 230, 0.75);
+      background: rgba(10, 16, 36, 0.7);
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .dot-red {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff3344;
+      box-shadow: 0 0 6px #ff3344;
+    }
+    .dot-lantern {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffb347;
+      box-shadow: 0 0 6px #ffb347;
+    }
+    .dot-cloud {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1e40af;
+      box-shadow: 0 0 6px #2563eb;
+    }
   </style>
 </head>
 <body>
@@ -385,6 +443,16 @@
         <span>🏆</span>
         <span id="score-display">0</span>
       </div>
+    </div>
+  </div>
+
+  <!-- CIRCULAR MINIMAP -->
+  <div id="minimap-panel">
+    <canvas id="minimap-canvas" width="140" height="140"></canvas>
+    <div class="minimap-legend">
+      <span class="legend-item"><span class="dot-red"></span> Mây</span>
+      <span class="legend-item"><span class="dot-lantern"></span> Đèn</span>
+      <span class="legend-item"><span class="dot-cloud"></span> Mây Đen</span>
     </div>
   </div>
 
