@@ -224,7 +224,7 @@ function triggerPulseVisual(pos) {
 // Input Handling
 const keys = {};
 let camYaw = 0;
-let isRightMouseDown = false;
+let isMouseDown = false;
 let prevMouseX = 0;
 
 window.addEventListener('keydown', (e) => {
@@ -239,23 +239,23 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('mousedown', (e) => {
-  if (e.button === 2) {
-    isRightMouseDown = true;
+  if (e.button === 0 || e.button === 2) {
+    isMouseDown = true;
     prevMouseX = e.clientX;
   }
 });
 
 window.addEventListener('mouseup', (e) => {
-  if (e.button === 2) isRightMouseDown = false;
+  if (e.button === 0 || e.button === 2) isMouseDown = false;
 });
 
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('mousemove', (e) => {
-  if (isRightMouseDown) {
+  if (isMouseDown) {
     const deltaX = e.clientX - prevMouseX;
     prevMouseX = e.clientX;
-    camYaw -= deltaX * 0.005;
+    camYaw += deltaX * 0.005;
   }
 });
 
@@ -327,7 +327,12 @@ function animate() {
     const interact = !!(keys['e'] || keys[' ']);
     const pulse = !!(keys['f'] || keys['q']);
 
-    const yawDeg = (-camYaw * 180) / Math.PI;
+    const yawDeg = (camYaw * 180) / Math.PI;
+
+    if (mx !== 0 || mz !== 0) {
+      const moveAngle = Math.atan2(mx, mz);
+      playerGroup.rotation.y = camYaw + moveAngle;
+    }
 
     const events = sim.step({
       move: [mx, mz],
