@@ -164,9 +164,8 @@ for (let c = 0; c < 2; c++) {
 scene.add(islandGroup);
 
 // ==========================================
-// 3. PROCEDURAL FLORA & ENVIRONMENT (SKY GARDEN)
+// 3. PROCEDURAL FLORA & OBSTACLES (SKY GARDEN)
 // ==========================================
-// Dedicated deterministic PRNG for decoration (Leaves src/core completely unaffected!)
 function decoRandom(seed) {
   let s = seed % 2147483647;
   if (s <= 0) s += 2147483646;
@@ -177,9 +176,12 @@ function decoRandom(seed) {
 }
 const rand = decoRandom(999);
 
-// A. Stylized Trees (Curved trunks + fluffy cloud foliage)
+// Physical obstacle list for trees & rocks (Mây cannot walk through, slides smoothly)
+const obstacles = [];
+
+// Multi-color palette for diverse trees (Sky: Children of the Light aesthetic)
 const foliageMatTeal = new THREE.MeshStandardMaterial({
-  color: 0x226b5a,
+  color: 0x1f6655,
   roughness: 0.85,
   metalness: 0.05,
   flatShading: true
@@ -190,14 +192,36 @@ const foliageMatMint = new THREE.MeshStandardMaterial({
   metalness: 0.05,
   flatShading: true
 });
-const trunkMat = new THREE.MeshStandardMaterial({
-  color: 0x3d2b1f,
-  roughness: 0.9,
-  metalness: 0.0
+const foliageMatGold = new THREE.MeshStandardMaterial({
+  color: 0xf4a261,
+  roughness: 0.75,
+  metalness: 0.05,
+  flatShading: true
+});
+const foliageMatAmber = new THREE.MeshStandardMaterial({
+  color: 0xe76f51,
+  roughness: 0.8,
+  metalness: 0.05,
+  flatShading: true
+});
+const foliageMatViolet = new THREE.MeshStandardMaterial({
+  color: 0x9d4edd,
+  roughness: 0.85,
+  metalness: 0.05,
+  flatShading: true
+});
+const foliageMatLavender = new THREE.MeshStandardMaterial({
+  color: 0xc77dff,
+  roughness: 0.8,
+  metalness: 0.05,
+  flatShading: true
 });
 
+const trunkMatWood = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 });
+const trunkMatBirch = new THREE.MeshStandardMaterial({ color: 0x6d594b, roughness: 0.85 });
+
 const treeGroup = new THREE.Group();
-const treeCount = 38;
+const treeCount = 42;
 
 // Keep safe clearance around center (player start) and 5 lanterns
 const safeZones = [
@@ -222,87 +246,143 @@ function isSafeFromZones(x, z, extraRadius = 1.0) {
 
 for (let i = 0; i < treeCount; i++) {
   let tx = 0, tz = 0, valid = false;
-  for (let attempt = 0; attempt < 40; attempt++) {
+  for (let attempt = 0; attempt < 50; attempt++) {
     const angle = rand() * Math.PI * 2;
-    const dist = 7.0 + Math.sqrt(rand()) * (ISLAND_RADIUS - 10.0);
+    const dist = 6.5 + Math.sqrt(rand()) * (ISLAND_RADIUS - 9.5);
     tx = Math.cos(angle) * dist;
     tz = Math.sin(angle) * dist;
-    if (isSafeFromZones(tx, tz, 2.0)) {
+    if (isSafeFromZones(tx, tz, 2.2)) {
       valid = true;
       break;
     }
   }
   if (!valid) continue;
 
-  const tScale = 0.8 + rand() * 0.55;
+  const tScale = 0.75 + rand() * 0.6;
+  const treeType = Math.floor(rand() * 3); // 0: Ancient Cloud Teal, 1: Golden Spirit, 2: Twilight Violet
   const singleTree = new THREE.Group();
   singleTree.position.set(tx, 0, tz);
 
-  // Trunk
-  const trunkGeo = new THREE.CylinderGeometry(0.18 * tScale, 0.32 * tScale, 2.4 * tScale, 7);
-  const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-  trunkMesh.position.y = 1.2 * tScale;
-  trunkMesh.rotation.z = (rand() - 0.5) * 0.15;
+  // Trunk with slight bend
+  const trunkHeight = (2.2 + rand() * 0.8) * tScale;
+  const trunkBaseRadius = (0.28 + rand() * 0.08) * tScale;
+  const trunkGeo = new THREE.CylinderGeometry(trunkBaseRadius * 0.55, trunkBaseRadius, trunkHeight, 8);
+  const currentTrunkMat = treeType === 1 ? trunkMatBirch : trunkMatWood;
+  const trunkMesh = new THREE.Mesh(trunkGeo, currentTrunkMat);
+  trunkMesh.position.y = trunkHeight * 0.5;
+  trunkMesh.rotation.z = (rand() - 0.5) * 0.18;
+  trunkMesh.rotation.x = (rand() - 0.5) * 0.18;
   trunkMesh.castShadow = true;
   singleTree.add(trunkMesh);
 
-  // Cloud-like layered canopy (3-4 spheres overlapping)
-  const canopyLayers = 3;
-  const baseFoliageMat = rand() > 0.4 ? foliageMatMint : foliageMatTeal;
-  for (let k = 0; k < canopyLayers; k++) {
-    const fRadius = (0.95 - k * 0.18) * tScale;
-    const foliageGeo = new THREE.DodecahedronGeometry(fRadius, 1);
-    const foliageMesh = new THREE.Mesh(foliageGeo, baseFoliageMat);
-    foliageMesh.position.set(
-      (rand() - 0.5) * 0.4 * tScale,
-      (2.2 + k * 0.7) * tScale,
-      (rand() - 0.5) * 0.4 * tScale
-    );
+  // Diverse canopy shapes per species
+  if (treeType === 0) {
+    // Species 0: Ancient Cloud Canopy (3 tiers of overlapping fluffy balls)
+    const canopyMat = rand() > 0.4 ? foliageMatTeal : foliageMatMint;
+    for (let k = 0; k < 3; k++) {
+      const fRadius = (1.05 - k * 0.22) * tScale;
+      const foliageGeo = new THREE.DodecahedronGeometry(fRadius, 1);
+      const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
+      foliageMesh.position.set(
+        (rand() - 0.5) * 0.35 * tScale,
+        trunkHeight + (0.3 + k * 0.65) * tScale,
+        (rand() - 0.5) * 0.35 * tScale
+      );
+      foliageMesh.castShadow = true;
+      singleTree.add(foliageMesh);
+    }
+  } else if (treeType === 1) {
+    // Species 1: Golden Spirit Tree (Tall crown with amber & gold layers)
+    const canopyMat = rand() > 0.5 ? foliageMatGold : foliageMatAmber;
+    const fRadius = 1.15 * tScale;
+    const foliageGeo = new THREE.SphereGeometry(fRadius, 12, 12);
+    const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
+    foliageMesh.scale.set(1.0, 1.35, 1.0);
+    foliageMesh.position.set(0, trunkHeight + 0.8 * tScale, 0);
     foliageMesh.castShadow = true;
     singleTree.add(foliageMesh);
+
+    // Glowing little spirit light in foliage
+    const fLightMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18 * tScale, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd166 })
+    );
+    fLightMesh.position.set(0.4 * tScale, trunkHeight + 0.7 * tScale, 0.4 * tScale);
+    singleTree.add(fLightMesh);
+  } else {
+    // Species 2: Twilight Violet Willow (Soft pastel lavender clusters)
+    const canopyMat = rand() > 0.5 ? foliageMatViolet : foliageMatLavender;
+    for (let k = 0; k < 4; k++) {
+      const angleK = (k / 4) * Math.PI * 2;
+      const fRadius = (0.75 + rand() * 0.25) * tScale;
+      const foliageGeo = new THREE.DodecahedronGeometry(fRadius, 1);
+      const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
+      foliageMesh.position.set(
+        Math.cos(angleK) * 0.65 * tScale,
+        trunkHeight + (0.2 + (k % 2) * 0.4) * tScale,
+        Math.sin(angleK) * 0.65 * tScale
+      );
+      foliageMesh.castShadow = true;
+      singleTree.add(foliageMesh);
+    }
   }
 
   treeGroup.add(singleTree);
+
+  // Register physical obstacle collision radius for trunk
+  obstacles.push({
+    x: tx,
+    z: tz,
+    radius: trunkBaseRadius * 1.15
+  });
 }
 scene.add(treeGroup);
 
-// B. Ancient Rocks & Stones
-const rockGeo = new THREE.DodecahedronGeometry(0.6, 0);
+// B. Ancient Rocks & Stones (With collision)
+const rockGeo = new THREE.DodecahedronGeometry(0.65, 0);
 const rockMat = new THREE.MeshStandardMaterial({
   color: 0x36414c,
   roughness: 0.88,
   metalness: 0.1,
   flatShading: true
 });
-const rockCount = 45;
+const rockCount = 36;
 const rockGroup = new THREE.Group();
 for (let i = 0; i < rockCount; i++) {
   const angle = rand() * Math.PI * 2;
-  const dist = 5.0 + Math.sqrt(rand()) * (ISLAND_RADIUS - 7.0);
+  const dist = 5.0 + Math.sqrt(rand()) * (ISLAND_RADIUS - 7.5);
   const rx = Math.cos(angle) * dist;
   const rz = Math.sin(angle) * dist;
-  if (!isSafeFromZones(rx, rz, 1.2)) continue;
+  if (!isSafeFromZones(rx, rz, 1.4)) continue;
 
   const rMesh = new THREE.Mesh(rockGeo, rockMat);
-  const sc = 0.5 + rand() * 0.8;
-  rMesh.scale.set(sc * (0.8 + rand() * 0.5), sc * (0.5 + rand() * 0.4), sc * (0.8 + rand() * 0.5));
+  const sc = 0.55 + rand() * 0.75;
+  rMesh.scale.set(sc * (0.85 + rand() * 0.4), sc * (0.5 + rand() * 0.3), sc * (0.85 + rand() * 0.4));
   rMesh.position.set(rx, rMesh.scale.y * 0.35, rz);
   rMesh.rotation.set(rand() * 2, rand() * 2, rand() * 2);
   rMesh.castShadow = true;
   rMesh.receiveShadow = true;
   rockGroup.add(rMesh);
+
+  // Register physical obstacle collision radius for rock
+  obstacles.push({
+    x: rx,
+    z: rz,
+    radius: sc * 0.58
+  });
 }
 scene.add(rockGroup);
 
-// C. Stylized Grass Clumps (InstancedMesh for maximum 60fps performance)
-const grassBladeCount = 280;
-const grassClumpGeo = new THREE.ConeGeometry(0.18, 0.65, 4);
-const grassMat = new THREE.MeshStandardMaterial({
-  color: 0x2d8a6e,
+// C. Stylized Lush Grass Clumps (Organic, varied, walkable - NO COLLISION)
+const grassBladeCount = 420;
+// Multi-blade curved clump geometry for natural look
+const grassClumpGeo = new THREE.ConeGeometry(0.24, 0.75, 4);
+const grassMatEmerald = new THREE.MeshStandardMaterial({
+  color: 0x237055,
   roughness: 0.9,
   flatShading: true
 });
-const grassInstanced = new THREE.InstancedMesh(grassClumpGeo, grassMat, grassBladeCount);
+const grassInstanced = new THREE.InstancedMesh(grassClumpGeo, grassMatEmerald, grassBladeCount);
 const dummyMatrix = new THREE.Matrix4();
 const dummyPos = new THREE.Vector3();
 const dummyQuat = new THREE.Quaternion();
@@ -310,14 +390,14 @@ const dummyScale = new THREE.Vector3();
 
 for (let i = 0; i < grassBladeCount; i++) {
   const angle = rand() * Math.PI * 2;
-  const dist = 3.0 + Math.sqrt(rand()) * (ISLAND_RADIUS - 4.5);
+  const dist = 2.5 + Math.sqrt(rand()) * (ISLAND_RADIUS - 4.0);
   const gx = Math.cos(angle) * dist;
   const gz = Math.sin(angle) * dist;
 
-  const sc = 0.7 + rand() * 0.7;
-  dummyPos.set(gx, 0.3 * sc, gz);
+  const sc = 0.6 + rand() * 0.75;
+  dummyPos.set(gx, 0.35 * sc, gz);
   dummyQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * Math.PI * 2);
-  dummyScale.set(sc, sc, sc);
+  dummyScale.set(sc * (0.8 + rand() * 0.4), sc * (0.7 + rand() * 0.6), sc * (0.8 + rand() * 0.4));
   dummyMatrix.compose(dummyPos, dummyQuat, dummyScale);
   grassInstanced.setMatrixAt(i, dummyMatrix);
 }
@@ -864,6 +944,21 @@ function animate() {
       jump: !isGrounded
     });
 
+    // Obstacle collision: Mây slides smoothly around trees & rocks (cannot walk through)
+    for (const obs of obstacles) {
+      const dx = sim.player.pos[0] - obs.x;
+      const dz = sim.player.pos[2] - obs.z;
+      const minDist = obs.radius + 0.38; // Mây's physical collision radius
+      const distSq = dx * dx + dz * dz;
+      if (distSq < minDist * minDist) {
+        const d = Math.sqrt(distSq);
+        if (d > 0.001) {
+          sim.player.pos[0] = obs.x + (dx / d) * minDist;
+          sim.player.pos[2] = obs.z + (dz / d) * minDist;
+        }
+      }
+    }
+
     for (const ev of events) {
       if (ev.name === 'pulse') {
         triggerPulseVisual(sim.player.pos);
@@ -945,15 +1040,15 @@ function animate() {
   syncShades(totalElapsed);
   updateHUD();
 
-  // E. Smooth Camera Lerp Follow (Horizontal eye-level orbit around Mây)
-  const camDist = 7.6;
-  const camHeight = 2.4; // Eye-level perspective, prevents overhead flipping
+  // E. Smooth Camera Lerp Follow (Diagonal top-down isometric view, rotates 360 horizontally)
+  const camDist = 9.2;
+  const camHeight = 5.2; // Diagonal angle looking down at Mây, providing expansive scenery & obstacle awareness
   const desiredCamX = sim.player.pos[0] - Math.sin(camYaw) * camDist;
   const desiredCamZ = sim.player.pos[2] - Math.cos(camYaw) * camDist;
   const desiredCamY = sim.player.pos[1] + playerVisualY + camHeight;
 
   cameraCurrentPos.lerp(new THREE.Vector3(desiredCamX, desiredCamY, desiredCamZ), 0.12);
-  cameraTargetLook.lerp(new THREE.Vector3(sim.player.pos[0], sim.player.pos[1] + playerVisualY + 1.2, sim.player.pos[2]), 0.14);
+  cameraTargetLook.lerp(new THREE.Vector3(sim.player.pos[0], sim.player.pos[1] + playerVisualY + 0.9, sim.player.pos[2]), 0.14);
 
   camera.position.copy(cameraCurrentPos);
   camera.lookAt(cameraTargetLook);
