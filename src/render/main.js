@@ -472,47 +472,16 @@ const sharedGrassMat = new THREE.MeshStandardMaterial({
 });
 
 // ==========================================
-// 4. MÂY 3D CHARACTER MODEL (BLACK WITH GLOWING BLUE-PURPLE OUTLINE & AURA)
+// 4. MÂY 3D CHARACTER MODEL WITH HANDHELD LANTERN (SKY STYLE)
 // ==========================================
 function createMayCharacter() {
   const group = new THREE.Group();
 
-  // Midnight black tunic with subtle deep purple undertone
-  const tunicMat = new THREE.MeshStandardMaterial({
-    color: 0x10121a,
-    roughness: 0.35,
-    metalness: 0.15,
-    emissive: 0x2e1065,
-    emissiveIntensity: 0.35
-  });
-
-  // Glowing blue-purple trim and highlights
-  const purpleBlueTrimMat = new THREE.MeshStandardMaterial({
-    color: 0x00b3ff,
-    emissive: 0x7a3cff,
-    emissiveIntensity: 1.0,
-    roughness: 0.2
-  });
-
-  // Scarf & cape in shadow violet with vivid purple-blue emissive
-  const scarfMat = new THREE.MeshStandardMaterial({
-    color: 0x181028,
-    emissive: 0x7c3aed,
-    emissiveIntensity: 0.8,
-    roughness: 0.35
-  });
-
-  // Head in midnight shadow
-  const skinMat = new THREE.MeshStandardMaterial({
-    color: 0x151620,
-    roughness: 0.55
-  });
-
-  // Black conical hat
-  const hatMat = new THREE.MeshStandardMaterial({
-    color: 0x12141c,
-    roughness: 0.5
-  });
+  const tunicMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.55 });
+  const scarfMat = new THREE.MeshStandardMaterial({ color: 0xc8102e, roughness: 0.45 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfbe, roughness: 0.65 });
+  const hatMat = new THREE.MeshStandardMaterial({ color: 0xdeb841, roughness: 0.5 });
+  const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.6, roughness: 0.3 });
 
   // Torso / Poncho (Smooth curved bell shape)
   const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.44, 0.75, 18), tunicMat);
@@ -520,35 +489,16 @@ function createMayCharacter() {
   bodyMesh.castShadow = true;
   group.add(bodyMesh);
 
-  // Glowing blue-purple rim at bottom edge of poncho
-  const tunicHemRim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.024, 8, 28), purpleBlueTrimMat);
-  tunicHemRim.rotation.x = Math.PI / 2;
-  tunicHemRim.position.y = 0.18;
-  group.add(tunicHemRim);
-
-  // Scarf / Ribbon at neck
+  // Red Scarf / Ribbon at neck
   const scarfMesh = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.065, 12, 24), scarfMat);
   scarfMesh.rotation.x = Math.PI / 2;
   scarfMesh.position.y = 0.92;
   group.add(scarfMesh);
 
-  // Fluttering Cape tails in shadow violet with glowing edge
-  const capeTail = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.24, 0.54),
-    new THREE.MeshStandardMaterial({
-      color: 0x120d22,
-      emissive: 0x6366f1,
-      emissiveIntensity: 0.7,
-      side: THREE.DoubleSide
-    })
-  );
+  // Fluttering Cape tails
+  const capeTail = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.52), new THREE.MeshStandardMaterial({ color: 0xc8102e, side: THREE.DoubleSide }));
   capeTail.position.set(0, 0.75, -0.32);
   capeTail.rotation.x = 0.2;
-
-  const capeEdge = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.028, 0.02), purpleBlueTrimMat);
-  capeEdge.position.y = -0.27;
-  capeTail.add(capeEdge);
-
   group.add(capeTail);
   group.userData.capeTail = capeTail;
 
@@ -558,35 +508,35 @@ function createMayCharacter() {
   headMesh.castShadow = true;
   group.add(headMesh);
 
-  // Stylized Glowing Cyan-Blue Eyes
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  // Stylized Glowing Eyes
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfff6c2 });
   const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), eyeMat);
   leftEye.position.set(0.085, 1.12, 0.2);
   const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), eyeMat);
   rightEye.position.set(-0.085, 1.12, 0.2);
   group.add(leftEye, rightEye);
 
-  // Vietnamese Nón Lá Conical Hat (Midnight Black)
+  // Vietnamese Nón Lá Conical Hat
   const hatMesh = new THREE.Mesh(new THREE.ConeGeometry(0.56, 0.28, 24), hatMat);
   hatMesh.position.y = 1.32;
   hatMesh.castShadow = true;
   group.add(hatMesh);
 
-  // Glowing blue-purple weave ring on hat
-  const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.025, 8, 32), purpleBlueTrimMat);
+  // Golden weave ring on hat
+  const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.022, 8, 24), goldTrimMat);
   hatBand.rotation.x = Math.PI / 2;
   hatBand.position.y = 1.18;
   group.add(hatBand);
 
   // Silk tassel on hat apex
-  const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.035, 0.18, 8), purpleBlueTrimMat);
+  const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.035, 0.18, 8), scarfMat);
   tassel.position.set(0.05, 1.4, -0.05);
   tassel.rotation.z = -0.3;
   group.add(tassel);
 
-  // Dark obsidian wooden shoes/feet
+  // Wooden shoes/feet
   const footGeo = new THREE.BoxGeometry(0.12, 0.08, 0.22);
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x1a1a24, roughness: 0.8 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.8 });
   const leftFoot = new THREE.Mesh(footGeo, woodMat);
   leftFoot.position.set(0.14, 0.04, 0);
   const rightFoot = new THREE.Mesh(footGeo, woodMat);
@@ -595,29 +545,13 @@ function createMayCharacter() {
   group.userData.leftFoot = leftFoot;
   group.userData.rightFoot = rightFoot;
 
-  // Luminous Blue-Purple Mystic Aura Ring under feet
-  const auraRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.36, 0.45, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x7a3cff,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.75,
-      depthWrite: false
-    })
-  );
-  auraRing.rotation.x = -Math.PI / 2;
-  auraRing.position.y = 0.02;
-  group.add(auraRing);
-  group.userData.auraRing = auraRing;
-
   // ----------------- HANDHELD SMALL LANTERN (ĐÈN LỒNG NHỎ TRÊN TAY) -----------------
   const handGroup = new THREE.Group();
   handGroup.position.set(0.38, 0.65, 0.22);
 
   const handleMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(0.015, 0.015, 0.45, 8),
-    new THREE.MeshStandardMaterial({ color: 0x241d30, roughness: 0.7 })
+    new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.7 })
   );
   handleMesh.rotation.x = 0.5;
   handleMesh.rotation.z = -0.3;
@@ -627,32 +561,32 @@ function createMayCharacter() {
   miniLantern.position.set(0.08, -0.15, 0.15);
 
   const miniBodyMat = new THREE.MeshStandardMaterial({
-    color: 0x1c1228,
-    emissive: new THREE.Color(0x8b5cf6),
-    emissiveIntensity: 0.85,
-    roughness: 0.35
+    color: 0xc8102e,
+    emissive: new THREE.Color(0xff4433),
+    emissiveIntensity: 0.6,
+    roughness: 0.4
   });
   const miniBody = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.22, 12), miniBodyMat);
   miniLantern.add(miniBody);
 
-  const miniCap = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.08, 8), purpleBlueTrimMat);
+  const miniCap = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.08, 8), goldTrimMat);
   miniCap.position.y = 0.13;
   miniLantern.add(miniCap);
 
-  const miniTassel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.02, 0.12, 6), purpleBlueTrimMat);
+  const miniTassel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.02, 0.12, 6), scarfMat);
   miniTassel.position.y = -0.16;
   miniLantern.add(miniTassel);
 
-  // Glow light inside small lantern (mystical blue-purple)
-  const heldLight = new THREE.PointLight(0x818cf8, 1.4, 5.5);
+  // Glow light inside small lantern (castShadow = false to avoid atlas issues)
+  const heldLight = new THREE.PointLight(0xffaa44, 1.2, 5.0);
   heldLight.position.set(0, 0, 0);
   miniLantern.add(heldLight);
 
   const heldGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: moteGlowTexture,
-    color: 0x7c3aed,
+    color: 0xffc107,
     transparent: true,
-    opacity: 0.75,
+    opacity: 0.7,
     depthWrite: false,
     fog: false,
     blending: THREE.AdditiveBlending
@@ -820,37 +754,104 @@ function createOrientLanternPostMesh(id) {
 }
 
 // ==========================================
-// 6. NATURE & ISLAND ENVIRONMENT (THAM KHẢO ẢNH 2)
+// 6. NATURE & ISLAND ENVIRONMENT (JAPANESE ZEN STYLE: SAKURA, MOMIJI, BONSAI PINE)
 // ==========================================
 const natureGroup = new THREE.Group();
 scene.add(natureGroup);
 
-// Broadleaf Palm tree (Ghibli tropical tree from Image 2)
+// Japanese Zen Trees (Sakura Cherry Blossom, Momiji Red Maple, Bonsai Pine)
+function buildJapaneseTree(x, z, groundY = 0, style = 'sakura', scale = 1.0) {
+  const group = new THREE.Group();
+  group.position.set(x, groundY, z);
+  group.scale.set(scale, scale, scale);
+
+  const trunkMat = new THREE.MeshStandardMaterial({
+    color: 0x342217,
+    roughness: 0.9,
+    metalness: 0.05
+  });
+
+  let foliageColor, emissiveColor, emissiveInt;
+  if (style === 'sakura') {
+    // Sakura: Delicate blushing pink with soft warm glow
+    foliageColor = 0xffb7c5;
+    emissiveColor = 0xf472b6;
+    emissiveInt = 0.25;
+  } else if (style === 'momiji') {
+    // Momiji: Japanese Autumn Scarlet Maple
+    foliageColor = 0xd9381e;
+    emissiveColor = 0x991b1b;
+    emissiveInt = 0.28;
+  } else {
+    // Bonsai Zen Pine: Deep emerald jade green
+    foliageColor = 0x166534;
+    emissiveColor = 0x14532d;
+    emissiveInt = 0.18;
+  }
+
+  const foliageMat = new THREE.MeshStandardMaterial({
+    color: foliageColor,
+    emissive: emissiveColor,
+    emissiveIntensity: emissiveInt,
+    roughness: 0.6,
+    flatShading: true
+  });
+
+  // 1. Curved Gnarled Trunk (Japanese Zen S-curve)
+  const baseTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 1.2, 8), trunkMat);
+  baseTrunk.position.set(0, 0.6, 0);
+  baseTrunk.rotation.z = 0.1;
+  baseTrunk.castShadow = true;
+  group.add(baseTrunk);
+
+  const midTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.2, 8), trunkMat);
+  midTrunk.position.set(0.14, 1.6, 0.05);
+  midTrunk.rotation.z = -0.14;
+  midTrunk.rotation.x = 0.08;
+  midTrunk.castShadow = true;
+  group.add(midTrunk);
+
+  const topTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 1.1, 8), trunkMat);
+  topTrunk.position.set(0.04, 2.5, 0.09);
+  topTrunk.rotation.z = 0.15;
+  topTrunk.castShadow = true;
+  group.add(topTrunk);
+
+  // 2. Tiered Horizontal Cloud Pads (Niwaki / Layered Bonsai Canopy)
+  const pads = [
+    { x: -0.6, y: 2.2, z: 0.35, rx: 1.15, rz: 0.95, ry: 0.38 },
+    { x: 0.7, y: 2.7, z: -0.3, rx: 1.3, rz: 1.1, ry: 0.42 },
+    { x: -0.25, y: 3.3, z: -0.45, rx: 1.2, rz: 1.0, ry: 0.36 },
+    { x: 0.1, y: 3.85, z: 0.15, rx: 1.5, rz: 1.35, ry: 0.52 }
+  ];
+
+  pads.forEach(p => {
+    // Branch connecting trunk to cloud pad
+    const bLen = Math.hypot(p.x, p.z);
+    if (bLen > 0.3) {
+      const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, bLen, 6), trunkMat);
+      branch.position.set(p.x * 0.5, p.y - 0.2, p.z * 0.5);
+      branch.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(p.x, 0.3, p.z).normalize());
+      branch.castShadow = true;
+      group.add(branch);
+    }
+
+    const padMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), foliageMat);
+    padMesh.scale.set(p.rx, p.ry, p.rz);
+    padMesh.position.set(p.x, p.y, p.z);
+    padMesh.castShadow = true;
+    padMesh.receiveShadow = true;
+    group.add(padMesh);
+  });
+
+  return group;
+}
+
+// Backward-compatible builder that creates beautiful varied Japanese trees
 function buildTropicalTree(x, z, groundY = 0) {
-  const tree = new THREE.Group();
-  tree.position.set(x, groundY, z);
-
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.85 });
-  const frondMat = new THREE.MeshStandardMaterial({ color: 0x2d7f50, roughness: 0.55, side: THREE.DoubleSide });
-
-  for (let s = 0; s < 4; s++) {
-    const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.2 - s * 0.02, 0.24 - s * 0.02, 0.85, 8), trunkMat);
-    seg.position.set(0.04 * s, s * 0.8 + 0.42, 0);
-    seg.rotation.z = -0.05 * s;
-    seg.castShadow = true;
-    tree.add(seg);
-  }
-
-  for (let f = 0; f < 6; f++) {
-    const ang = (f / 6) * Math.PI * 2;
-    const frond = new THREE.Mesh(new THREE.ConeGeometry(0.75, 2.6, 4), frondMat);
-    frond.position.set(Math.cos(ang) * 0.85, 3.4, Math.sin(ang) * 0.85);
-    frond.rotation.set(Math.cos(ang) * 0.85, ang, Math.sin(ang) * 0.85);
-    frond.castShadow = true;
-    tree.add(frond);
-  }
-
-  return tree;
+  const styles = ['sakura', 'momiji', 'pine'];
+  const style = styles[Math.abs(Math.round(x * 3 + z * 7)) % 3];
+  return buildJapaneseTree(x, z, groundY, style, 1.05);
 }
 
 // Ancient Moss-Covered Stone Altar / Dolmen (Mô phỏng phiến đá phủ rêu trong Ảnh 2)
@@ -1358,32 +1359,58 @@ function buildIslandTerrain(night) {
     });
 
   } else if (night === 3) {
-    // ----------------- NIGHT 3: ĐẢO CHUÔNG (3 TIERS Y=0, Y=3, Y=6 + BELL TOWER) -----------------
-    // Tier 0: Chân đảo Y=0, R=45m
+    // ----------------- NIGHT 3: ĐẢO CHUÔNG (CẤU TRÚC BÁNH KEM 3 TẦNG ĐỒNG TÂM Y=0, Y=3, Y=6 + BELL TOWER) -----------------
+    const tierStoneMat = new THREE.MeshStandardMaterial({
+      color: 0x4a5568,
+      roughness: 0.88,
+      flatShading: true
+    });
+
+    // Tier 0 (Chân đế bánh kem): R=45m, đỉnh Y=0
     const t0 = new THREE.Mesh(new THREE.CylinderGeometry(45.0, 42.0, 4, 64), sharedGrassMat);
     t0.position.set(0, -2, 0);
     t0.receiveShadow = true;
     islandMeshGroup.add(t0);
 
-    // Tier 1: Cao nguyên bán nguyệt tại Y=3 (R=24m, CHỈ NẰM Ở PHÍA BẮC Z >= 0!)
-    const t1Geo = new THREE.CylinderGeometry(24.0, 24.0, 3.0, 48, 1, false, -Math.PI / 2, Math.PI);
-    const t1 = new THREE.Mesh(t1Geo, sharedGrassMat);
+    // Bờ kè đá viền quanh chân Tầng 0
+    const t0Rim = new THREE.Mesh(new THREE.TorusGeometry(43.5, 0.45, 12, 64), tierStoneMat);
+    t0Rim.rotation.x = Math.PI / 2;
+    t0Rim.position.y = -0.15;
+    islandMeshGroup.add(t0Rim);
+
+    // Tier 1 (Tầng 2 của bánh kem): R=24m, đỉnh tại Y=3.0, đặt trực tiếp lên Tầng 0
+    const t1 = new THREE.Mesh(new THREE.CylinderGeometry(24.0, 24.5, 3.0, 64), sharedGrassMat);
     t1.position.set(0, 1.5, 0);
     t1.receiveShadow = true;
     islandMeshGroup.add(t1);
 
-    // Vách đá đứng dọc theo Z = 0 ngăn cách Tầng 1 và Tầng 0 phía Nam
-    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x3d4b5c, roughness: 0.9, flatShading: true });
-    const cliffMesh = new THREE.Mesh(new THREE.BoxGeometry(48.0, 3.0, 0.45), cliffMat);
-    cliffMesh.position.set(0, 1.5, 0);
-    cliffMesh.receiveShadow = true;
-    islandMeshGroup.add(cliffMesh);
+    // Bờ kè đá bậc thang viền quanh Tầng 1 (Terraced Stone Wall) tạo thành khối bánh kem tầng 2 rõ rệt
+    const t1StoneWall = new THREE.Mesh(new THREE.CylinderGeometry(24.1, 24.6, 2.9, 64, 1, true), tierStoneMat);
+    t1StoneWall.position.set(0, 1.45, 0);
+    t1StoneWall.receiveShadow = true;
+    islandMeshGroup.add(t1StoneWall);
 
-    // Tier 2: Đỉnh Tháp Chuông tại Y=6, R=8m
-    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(8.0, 8.0, 3.0, 32), sharedGrassMat);
+    const t1Rim = new THREE.Mesh(new THREE.TorusGeometry(24.0, 0.28, 8, 64), tierStoneMat);
+    t1Rim.rotation.x = Math.PI / 2;
+    t1Rim.position.y = 2.95;
+    islandMeshGroup.add(t1Rim);
+
+    // Tier 2 (Đỉnh bánh kem): R=8m, đỉnh tại Y=6.0, đặt trực tiếp lên chính giữa Tầng 1
+    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(8.0, 8.5, 3.0, 48), sharedGrassMat);
     t2.position.set(0, 4.5, 0);
     t2.receiveShadow = true;
     islandMeshGroup.add(t2);
+
+    // Bờ kè đá bậc thang viền quanh Tầng 2 (Tier 2 Retaining Stone Wall)
+    const t2StoneWall = new THREE.Mesh(new THREE.CylinderGeometry(8.1, 8.6, 2.9, 48, 1, true), tierStoneMat);
+    t2StoneWall.position.set(0, 4.45, 0);
+    t2StoneWall.receiveShadow = true;
+    islandMeshGroup.add(t2StoneWall);
+
+    const t2Rim = new THREE.Mesh(new THREE.TorusGeometry(8.0, 0.22, 8, 48), tierStoneMat);
+    t2Rim.rotation.x = Math.PI / 2;
+    t2Rim.position.y = 5.95;
+    islandMeshGroup.add(t2Rim);
 
     // ----------------- BẬC THANG ĐÁ ĐI XUỐNG TỪ TẦNG 2 XUỐNG TẦNG 1 (SUMMIT DESCENT STAIRS) -----------------
     // Kết nối từ (0, 6.0, 7.5) xuống (0, 3.0, 11.5)
@@ -1540,30 +1567,57 @@ function buildIslandTerrain(night) {
 function createDarkCloudMesh(id) {
   const group = new THREE.Group();
 
-  const cloudMat = new THREE.MeshStandardMaterial({
-    color: 0x0f172a,
-    emissive: 0x1e3a8a,
-    emissiveIntensity: 0.35,
-    roughness: 0.65,
+  // Thân mây chính: Đen tuyền khói sương huyền bí
+  const blackCloudMat = new THREE.MeshStandardMaterial({
+    color: 0x07090e,
+    emissive: 0x0a0f1d,
+    emissiveIntensity: 0.2,
+    roughness: 0.85,
     flatShading: true
   });
 
-  const mainPuff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.75, 1), cloudMat);
+  // Điểm xuyến Xanh đậm (Deep Sapphire Blue)
+  const deepBlueMat = new THREE.MeshStandardMaterial({
+    color: 0x071530,
+    emissive: 0x1d4ed8,
+    emissiveIntensity: 0.85,
+    roughness: 0.5,
+    flatShading: true
+  });
+
+  // Điểm xuyến Tím đậm (Mystic Deep Purple)
+  const deepPurpleMat = new THREE.MeshStandardMaterial({
+    color: 0x18072c,
+    emissive: 0x7e22ce,
+    emissiveIntensity: 0.9,
+    roughness: 0.5,
+    flatShading: true
+  });
+
+  const mainPuff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.75, 1), blackCloudMat);
   mainPuff.position.y = 0.9;
   mainPuff.castShadow = true;
   group.add(mainPuff);
 
-  const puff1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 1), cloudMat);
+  // Cụm phụ điểm xuyến xanh đậm và tím
+  const puff1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 1), deepBlueMat);
   puff1.position.set(0.45, 0.8, -0.2);
-  const puff2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 1), cloudMat);
+  const puff2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 1), deepPurpleMat);
   puff2.position.set(-0.4, 0.85, 0.2);
-  const puff3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 1), cloudMat);
+  const puff3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 1), blackCloudMat);
   puff3.position.set(0.1, 1.25, 0.1);
   group.add(puff1, puff2, puff3);
 
+  // Cuộn khói nhỏ (Wisps) điểm xuyến xanh đậm & tím bay lơ lửng quanh mây đen
+  const wispBlue = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), deepBlueMat);
+  wispBlue.position.set(-0.35, 1.3, -0.25);
+  const wispPurple = new THREE.Mesh(new THREE.DodecahedronGeometry(0.26, 0), deepPurpleMat);
+  wispPurple.position.set(0.38, 1.25, 0.3);
+  group.add(wispBlue, wispPurple);
+
   // Glowing Eyes (Default purple/blue or colorblind cyan)
   const isColorblind = localStorage.getItem('dao_den_long_colorblind') === 'true';
-  const eyeColor = isColorblind ? 0x00b3ff : 0x7a3cff;
+  const eyeColor = isColorblind ? 0x00b3ff : 0xa855f7;
   const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
   const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
   eyeL.position.set(0.24, 0.95, 0.6);
@@ -1571,12 +1625,12 @@ function createDarkCloudMesh(id) {
   eyeR.position.set(-0.24, 0.95, 0.6);
   group.add(eyeL, eyeR);
 
-  // Point light aura
-  const pl = new THREE.PointLight(eyeColor, 1.6, 6.0);
+  // Point light aura huyền ảo hòa quyện xanh tím
+  const pl = new THREE.PointLight(eyeColor, 1.8, 6.5);
   pl.position.set(0, 0.9, 0);
   group.add(pl);
 
-  group.userData = { id, mainPuff, puff1, puff2, puff3, eyeMat, cloudMat, pl };
+  group.userData = { id, mainPuff, puff1, puff2, puff3, wispBlue, wispPurple, eyeMat, cloudMat: blackCloudMat, deepBlueMat, deepPurpleMat, pl };
   return group;
 }
 
@@ -1789,8 +1843,9 @@ function initGame(night = 1) {
       { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
     ];
   } else if (night === 3) {
+    // Màn 3: Mây đen xuất hiện trên Tầng 2 (Y=6.0, R=8m)
     initialShades = [
-      { id: 'S1', pos: [14.0, 0, 10.0], state: 'chase' }
+      { id: 'S1', pos: [4.5, 6.0, 4.0], state: 'chase' }
     ];
   }
 
@@ -1821,9 +1876,22 @@ function initGame(night = 1) {
   sim.map.mote_spawns = clusterMotes.map(m => [...m.pos]);
 
   // Create Lantern Posts based on Image 1 placed at PDF 2 exact coordinates
+  // Tất cả lồng đèn lớn đều xoay tay đèn và mặt lồng đèn hướng về tâm đảo
   for (const l of sim.lanterns) {
     const mesh = createOrientLanternPostMesh(l.id);
     mesh.position.set(l.pos[0], l.pos[1], l.pos[2]);
+
+    let centerX = 0.0;
+    let centerZ = 0.0;
+    if (night === 2 && l.pos[0] > 40.0) {
+      centerX = 70.0; // Đảo Cau phía Đông
+    }
+    const dx = centerX - l.pos[0];
+    const dz = centerZ - l.pos[2];
+    if (Math.hypot(dx, dz) > 0.1) {
+      mesh.rotation.y = Math.atan2(-dz, dx);
+    }
+
     scene.add(mesh);
     lanternMeshes.push(mesh);
   }
@@ -2273,12 +2341,6 @@ function animate(now) {
   mayMesh.userData.heldLight.intensity = heldGlowIntensity;
   mayMesh.userData.miniBodyMat.emissiveIntensity = 0.5 + carried * 0.4;
 
-  // Luminous Blue-Purple Aura Ring rotation & breathing pulse
-  if (mayMesh.userData.auraRing) {
-    mayMesh.userData.auraRing.rotation.z += delta * 1.5;
-    mayMesh.userData.auraRing.material.opacity = 0.65 + Math.sin(now * 0.005) * 0.15;
-  }
-
   // Smooth Third-Person Camera Follow
   const targetCamX = mayMesh.position.x - Math.sin(camYaw) * Math.cos(camPitch) * camDist;
   const targetCamY = Math.max(mayMesh.position.y + 1.2, mayMesh.position.y + Math.sin(camPitch) * camDist + 0.6);
@@ -2412,6 +2474,14 @@ function animate(now) {
     sMesh.userData.mainPuff.rotation.y += delta * 1.5;
     sMesh.userData.puff1.rotation.x += delta * 2.0;
     sMesh.userData.puff2.rotation.z += delta * 1.8;
+    if (sMesh.userData.wispBlue) {
+      sMesh.userData.wispBlue.rotation.x += delta * 2.4;
+      sMesh.userData.wispBlue.position.y = 1.3 + Math.sin(now * 0.005) * 0.08;
+    }
+    if (sMesh.userData.wispPurple) {
+      sMesh.userData.wispPurple.rotation.z -= delta * 2.2;
+      sMesh.userData.wispPurple.position.y = 1.25 + Math.cos(now * 0.005) * 0.08;
+    }
 
     const cloudAuraColor = isColorblind ? 0x00b3ff : 0x7a3cff;
     if (sMesh.userData.eyeMat) sMesh.userData.eyeMat.color.setHex(cloudAuraColor);
