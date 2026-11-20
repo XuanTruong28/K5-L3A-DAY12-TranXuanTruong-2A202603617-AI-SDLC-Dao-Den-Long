@@ -212,8 +212,8 @@ mouseSensSlider.addEventListener('input', (e) => {
 // 3. THREE.JS SCENE, CAMERA, RENDERER, LIGHTING
 // ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050713); // Deep dark midnight
-scene.fog = new THREE.FogExp2(0x060916, 0.015);
+scene.background = new THREE.Color(0x0a1024); // Richer midnight blue
+scene.fog = new THREE.FogExp2(0x0a1024, 0.011); // Softer fog for better island visibility
 
 const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 400);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -222,14 +222,14 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.02;
+renderer.toneMappingExposure = 1.16;
 
-// Ambient Light (Darker night atmosphere, contrasts with glowing lanterns & fireflies)
-const ambientLight = new THREE.AmbientLight(0x1a2642, 0.28);
+// Ambient Light (Sáng rõ hơn, thấy rõ cảnh quan đảo và đường đá)
+const ambientLight = new THREE.AmbientLight(0x28385a, 0.44);
 scene.add(ambientLight);
 
-// Moon directional light (Silvery moonlight with soft shadows, generous frustum)
-const moonLight = new THREE.DirectionalLight(0x9dbbe8, 0.75);
+// Moon directional light (Ánh trăng bạc dịu sáng hơn)
+const moonLight = new THREE.DirectionalLight(0xb2ccf0, 0.95);
 moonLight.position.set(45, 80, -85);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.width = 2048;
@@ -732,6 +732,118 @@ function buildMossyRock(x, z, groundY = 0, scale = 1.0) {
   return rock;
 }
 
+// Stylized Wild Grass Clumps (Cỏ linh tinh mọc rải rác trên đảo)
+function buildGrassTuft(x, z, groundY = 0, scale = 1.0) {
+  const group = new THREE.Group();
+  group.position.set(x, groundY, z);
+
+  const grassMat = new THREE.MeshStandardMaterial({
+    color: 0x3d7844,
+    roughness: 0.85,
+    side: THREE.DoubleSide
+  });
+  const flowerMat = new THREE.MeshBasicMaterial({ color: 0xfff3a8 });
+
+  const bladeGeo = new THREE.ConeGeometry(0.12 * scale, 0.65 * scale, 3);
+  for (let i = 0; i < 5; i++) {
+    const blade = new THREE.Mesh(bladeGeo, grassMat);
+    const ang = (i / 5) * Math.PI * 2;
+    blade.position.set(Math.cos(ang) * 0.12 * scale, 0.32 * scale, Math.sin(ang) * 0.12 * scale);
+    blade.rotation.set(0.35 * Math.sin(ang), ang, 0.35 * Math.cos(ang));
+    blade.castShadow = true;
+    group.add(blade);
+  }
+
+  const bud = new THREE.Mesh(new THREE.SphereGeometry(0.06 * scale, 6, 6), flowerMat);
+  bud.position.set(0, 0.45 * scale, 0);
+  group.add(bud);
+
+  return group;
+}
+
+// Cozy Oriental Island Cottage (Căn nhà nhỏ ấm áp với đèn lồng hiên nhà)
+function buildSmallCottage(x, y, z, rotationY = 0) {
+  const hut = new THREE.Group();
+  hut.position.set(x, y, z);
+  hut.rotation.y = rotationY;
+
+  const foundationMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.9 });
+  const woodWallMat = new THREE.MeshStandardMaterial({ color: 0x6e472a, roughness: 0.85 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x8b3a2b, roughness: 0.65 });
+  const windowGlowMat = new THREE.MeshBasicMaterial({ color: 0xffd17a });
+  const darkTrimMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.7 });
+
+  // Foundation
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.4, 3.2), foundationMat);
+  base.position.y = 0.2;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  hut.add(base);
+
+  // Main walls
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.8, 2.6), woodWallMat);
+  walls.position.y = 1.3;
+  walls.castShadow = true;
+  walls.receiveShadow = true;
+  hut.add(walls);
+
+  // Corner timber pillars
+  [[-1.4, -1.2], [1.4, -1.2], [-1.4, 1.2], [1.4, 1.2]].forEach(([px, pz]) => {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.9, 0.2), darkTrimMat);
+    post.position.set(px, 1.35, pz);
+    post.castShadow = true;
+    hut.add(post);
+  });
+
+  // Front Door
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.08), darkTrimMat);
+  door.position.set(0, 1.0, 1.32);
+  hut.add(door);
+
+  // Glowing Windows
+  [-1.52, 1.52].forEach(wx => {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.55), windowGlowMat);
+    win.position.set(wx, 1.4, 0);
+    win.rotation.y = wx > 0 ? Math.PI / 2 : -Math.PI / 2;
+    hut.add(win);
+  });
+  const frontWin = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.4), windowGlowMat);
+  frontWin.position.set(0.75, 1.4, 1.32);
+  hut.add(frontWin);
+
+  // Curved Oriental Hip-and-Gable Roof
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.8, 1.1, 4), roofMat);
+  roof.position.y = 2.75;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  hut.add(roof);
+
+  // Overhang porch
+  const porchEave = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.9), roofMat);
+  porchEave.position.set(0, 1.9, 1.6);
+  porchEave.rotation.x = 0.2;
+  porchEave.castShadow = true;
+  hut.add(porchEave);
+
+  // Little porch lantern
+  const porchLantern = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.07, 0.18, 8),
+    new THREE.MeshStandardMaterial({
+      color: 0xc8102e,
+      emissive: 0xff7722,
+      emissiveIntensity: 0.8
+    })
+  );
+  porchLantern.position.set(0.45, 1.65, 1.7);
+  hut.add(porchLantern);
+
+  const porchLight = new THREE.PointLight(0xffaa44, 0.8, 4.5);
+  porchLight.position.set(0.45, 1.65, 1.7);
+  hut.add(porchLight);
+
+  return hut;
+}
+
 // Jump Pad 3D Model
 function buildJumpPadMesh(x, y, z) {
   const pad = new THREE.Group();
@@ -859,6 +971,44 @@ function buildIslandTerrain(night) {
   moonLight.target.updateMatrixWorld();
   moonLight.shadow.camera.updateProjectionMatrix();
 
+  // Shared round stepping stone assets & builders
+  const stoneGeo = new THREE.CylinderGeometry(0.55, 0.62, 0.08, 16);
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: 0x546274, // Mossy river slate stone
+    roughness: 0.88,
+    flatShading: true
+  });
+
+  function addSteppingPath(x1, z1, x2, z2, groundY = 0.04) {
+    const dist = Math.hypot(x2 - x1, z2 - z1);
+    if (dist < 1.0) return;
+    const dirX = (x2 - x1) / dist;
+    const dirZ = (z2 - z1) / dist;
+    for (let d = 1.6; d <= dist - 1.0; d += 1.4) {
+      const stone = new THREE.Mesh(stoneGeo, stoneMat);
+      const jLat = Math.sin(d * 6.3) * 0.08;
+      const sx = x1 + dirX * d + (-dirZ) * jLat;
+      const sz = z1 + dirZ * d + dirX * jLat;
+      stone.position.set(sx, groundY, sz);
+      const scale = 0.88 + Math.sin(d * 3.7) * 0.16;
+      stone.scale.set(scale, 1.0, scale);
+      stone.rotation.y = d * 1.5;
+      stone.receiveShadow = true;
+      islandMeshGroup.add(stone);
+    }
+  }
+
+  function addStonePlaza(cx, cz, groundY = 0.04, radius = 1.5, count = 8) {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2;
+      const stone = new THREE.Mesh(stoneGeo, stoneMat);
+      stone.position.set(cx + Math.cos(ang) * radius, groundY, cz + Math.sin(ang) * radius);
+      stone.scale.set(1.05, 1.0, 1.05);
+      stone.receiveShadow = true;
+      islandMeshGroup.add(stone);
+    }
+  }
+
   if (night === 1) {
     // ----------------- NIGHT 1: ĐẢO BẾN (R=40m) -----------------
     const diskGeo = new THREE.CylinderGeometry(40.0, 38.0, 4, 64);
@@ -867,62 +1017,27 @@ function buildIslandTerrain(night) {
     diskMesh.receiveShadow = true;
     islandMeshGroup.add(diskMesh);
 
-    // ----------------- 5 ĐƯỜNG LÁT ĐÁ TRÒN DẪN ĐƯỜNG ĐẾN ĐÈN LỒNG (CIRCULAR STEPPING STONES) -----------------
-    const stoneGeo = new THREE.CylinderGeometry(0.55, 0.62, 0.08, 16);
-    const stoneMat = new THREE.MeshStandardMaterial({
-      color: 0x546274, // Mossy river slate stone
-      roughness: 0.88,
-      flatShading: true
-    });
-
+    // 5 đường lát đá tròn dẫn đường đến 5 đèn lồng
+    addStonePlaza(0, 0, 0.04);
     const lanternTargets = [
       [0, 25.0], [23.8, 7.7], [14.7, -20.2], [-14.7, -20.2], [-23.8, 7.7]
     ];
-
     lanternTargets.forEach(([lx, lz]) => {
-      const totalDist = Math.hypot(lx, lz);
-      const dirX = lx / totalDist;
-      const dirZ = lz / totalDist;
-
-      // Đặt các viên đá tròn cách nhau 1.4m dọc theo 5 hướng dẫn thẳng đến chân cột đèn
-      for (let dist = 2.0; dist <= totalDist - 1.2; dist += 1.4) {
-        const stone = new THREE.Mesh(stoneGeo, stoneMat);
-        const lateralJitter = Math.sin(dist * 7) * 0.08;
-        const sx = dirX * dist + (-dirZ) * lateralJitter;
-        const sz = dirZ * dist + dirX * lateralJitter;
-        stone.position.set(sx, 0.04, sz);
-        const scaleJitter = 0.88 + Math.sin(dist * 3.7) * 0.18;
-        stone.scale.set(scaleJitter, 1.0, scaleJitter);
-        stone.rotation.y = dist * 1.5;
-        stone.receiveShadow = true;
-        islandMeshGroup.add(stone);
-      }
+      addSteppingPath(0, 0, lx, lz, 0.04);
     });
 
-    // Sân đá tròn tại trung tâm xuất phát (0, 0)
-    for (let i = 0; i < 8; i++) {
-      const ang = (i / 8) * Math.PI * 2;
-      const stone = new THREE.Mesh(stoneGeo, stoneMat);
-      stone.position.set(Math.cos(ang) * 1.5, 0.04, Math.sin(ang) * 1.5);
-      stone.scale.set(1.05, 1.0, 1.05);
-      stone.receiveShadow = true;
-      islandMeshGroup.add(stone);
-    }
+    // Căn nhà nhỏ ấm cúng trên Đảo Bến (nhà người giữ đảo cạnh rặng cây)
+    natureGroup.add(buildSmallCottage(-14.0, 0.0, 14.0, 0.45));
 
     // Ancient Moss-Covered Stone Altar (from Image 2)
     natureGroup.add(buildAncientDolmenAltar(-6.0, 8.0, 0));
 
     // Cây cối đặt ở các khoảng trống GIỮA các con đường, TUYỆT ĐỐI KHÔNG che khuất tầm nhìn 5 ngọn đèn lồng!
     const treeCoords = [
-      // Khoảng giữa L2 (18°) và L1 (90°):
       [10.0, 14.0], [15.0, 20.0], [7.0, 9.0],
-      // Khoảng giữa L1 (90°) và L5 (162°):
       [-10.0, 14.0], [-16.0, 21.0], [-18.0, 12.0],
-      // Khoảng giữa L5 (162°) và L4 (234°):
       [-20.0, -8.0], [-25.0, -10.0], [-14.0, -5.0],
-      // Khoảng giữa L4 (234°) và L3 (306°) - Phía Nam:
       [0.0, -18.0], [0.0, -28.0], [-5.0, -12.0], [5.0, -12.0],
-      // Khoảng giữa L3 (306°) và L2 (18°):
       [18.0, -6.0], [25.0, -8.0], [12.0, -4.0]
     ];
     treeCoords.forEach(([tx, tz]) => {
@@ -937,6 +1052,16 @@ function buildIslandTerrain(night) {
     ];
     boulderCoords.forEach(([rx, rz], idx) => {
       natureGroup.add(buildMossyRock(rx, rz, 0, 0.9 + (idx % 3) * 0.4));
+    });
+
+    // Cỏ linh tinh rải rác trên đảo
+    const grassCoords1 = [
+      [3.0, 5.0], [-5.0, -8.0], [8.0, 12.0], [-12.0, 6.0], [15.0, -10.0],
+      [-16.0, -12.0], [6.0, -20.0], [-8.0, 22.0], [20.0, 14.0], [-22.0, 2.0],
+      [12.0, 24.0], [-18.0, -18.0], [4.0, -14.0], [-10.0, 16.0], [1.0, 11.0]
+    ];
+    grassCoords1.forEach(([gx, gz], idx) => {
+      natureGroup.add(buildGrassTuft(gx, gz, 0, 0.85 + (idx % 3) * 0.2));
     });
 
     // Scatter Fantasy Lotus Flowers (Blue & Yellow from Image 2)
@@ -992,6 +1117,24 @@ function buildIslandTerrain(night) {
     });
     islandMeshGroup.add(bridgeGroup);
 
+    // ----------------- ĐƯỜNG ĐÁ TRÒN DẪN ĐẾN CÁC TRỤ ĐÈN (ĐẢO CAU) -----------------
+    // Đảo 1: Sân đá trung tâm (0, 0) và đường đá tới L1, L2, L3 + Đầu cầu tre
+    addStonePlaza(0, 0, 0.04);
+    addSteppingPath(0, 0, 0.0, 18.0, 0.04);   // Tới L1
+    addSteppingPath(0, 0, 14.0, -10.0, 0.04); // Tới L2
+    addSteppingPath(0, 0, -14.0, -10.0, 0.04);// Tới L3
+    addSteppingPath(0, 0, 26.0, 0.0, 0.04);   // Tới đầu cầu tre
+
+    // Đảo 2: Sân đá trung tâm (70, 0) và đường đá tới L4, L5, L6 + Đầu ra cầu tre
+    addStonePlaza(70, 0, 0.04);
+    addSteppingPath(70, 0, 70.0, 18.0, 0.04);  // Tới L4
+    addSteppingPath(70, 0, 84.0, -10.0, 0.04); // Tới L5
+    addSteppingPath(70, 0, 56.0, -10.0, 0.04); // Tới L6
+    addSteppingPath(70, 0, 44.0, 0.0, 0.04);   // Tới cuối cầu tre
+
+    // Căn nhà nhỏ ấm cúng trên Đảo Cau (Đảo 1, nhìn ra mặt nước và cầu tre)
+    natureGroup.add(buildSmallCottage(-14.0, 0.0, 2.0, 0.25));
+
     // Jump Pads (JP1 at [20, 0, 18], JP2 at [50, 0, -18])
     natureGroup.add(buildJumpPadMesh(20, 0, 18));
     natureGroup.add(buildJumpPadMesh(50, 0, -18));
@@ -1009,6 +1152,17 @@ function buildIslandTerrain(night) {
       [66, 6], [75, -5], [60, -8], [78, 8]
     ].forEach(([rx, rz], idx) => {
       natureGroup.add(buildMossyRock(rx, rz, 0, 0.9 + (idx % 2) * 0.3));
+    });
+
+    // Cỏ linh tinh rải rác trên cả 2 hòn đảo
+    const grassCoords2 = [
+      [-6.0, 8.0], [6.0, -6.0], [-10.0, -12.0], [14.0, 12.0], [-16.0, 8.0],
+      [10.0, -14.0], [18.0, 4.0], [-8.0, -4.0],
+      [64.0, 8.0], [76.0, -6.0], [62.0, -10.0], [78.0, 10.0], [82.0, -4.0],
+      [58.0, 6.0], [72.0, -14.0], [80.0, 8.0]
+    ];
+    grassCoords2.forEach(([gx, gz], idx) => {
+      natureGroup.add(buildGrassTuft(gx, gz, 0, 0.85 + (idx % 3) * 0.2));
     });
 
   } else if (night === 3) {
@@ -1032,11 +1186,11 @@ function buildIslandTerrain(night) {
     islandMeshGroup.add(t3);
 
     // Stone Ramps at 30° and 150° (from r=30, y=0 to r=24, y=3)
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.9 });
+    const stoneMatRamp = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.9 });
     [30, 150].forEach(deg => {
       const rad = (deg * Math.PI) / 180;
       const rampLen = 7.0;
-      const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, rampLen), stoneMat);
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, rampLen), stoneMatRamp);
       const midR = 27.0;
       ramp.position.set(midR * Math.cos(rad), 1.5, midR * Math.sin(rad));
       ramp.rotation.y = -rad + Math.PI / 2;
@@ -1044,6 +1198,29 @@ function buildIslandTerrain(night) {
       ramp.receiveShadow = true;
       islandMeshGroup.add(ramp);
     });
+
+    // ----------------- ĐƯỜNG ĐÁ TRÒN DẪN ĐẾN CÁC TRỤ ĐÈN (ĐẢO CHUÔNG) -----------------
+    // Tầng 0 (Y=0.04): Sân đá trung tâm (0, 0) dẫn tới L4, L5, L6, L7 và chân 2 con dốc đá
+    addStonePlaza(0, 0, 0.04);
+    addSteppingPath(0, 0, 35.0, -10.0, 0.04);   // Tới L4
+    addSteppingPath(0, 0, -35.0, -10.0, 0.04);  // Tới L5
+    addSteppingPath(0, 0, 20.0, -35.0, 0.04);   // Tới L6
+    addSteppingPath(0, 0, -20.0, -35.0, 0.04);  // Tới L7
+    addSteppingPath(0, 0, 26.0, 15.0, 0.04);    // Tới chân dốc đá 30°
+    addSteppingPath(0, 0, -26.0, 15.0, 0.04);   // Tới chân dốc đá 150°
+
+    // Tầng 1 (Y=3.04): Đường đá nối từ đỉnh dốc tới L2, L3 và hội tụ về Bục Nhảy (0, 13)
+    addSteppingPath(20.8, 12.0, 18.0, 10.0, 3.04); // Đỉnh dốc 30° -> L2
+    addSteppingPath(-20.8, 12.0, -18.0, 10.0, 3.04);// Đỉnh dốc 150° -> L3
+    addSteppingPath(18.0, 10.0, 0.0, 13.0, 3.04);   // L2 -> Bục nhảy
+    addSteppingPath(-18.0, 10.0, 0.0, 13.0, 3.04);  // L3 -> Bục nhảy
+
+    // Tầng 2 (Y=6.04): Đường đá tròn từ điểm đáp bục nhảy (0, 4) men quanh Tháp Chuông tới L1 (0, 6)
+    addSteppingPath(0.0, 4.0, 0.0, 6.0, 6.04);
+    addStonePlaza(0.0, 6.0, 6.04, 1.4, 6);
+
+    // Căn nhà nhỏ ấm cúng trên Đảo Chuông (Ngôi nhà sơn cước ở Tầng 1 lộng gió)
+    natureGroup.add(buildSmallCottage(0.0, 3.0, 21.0, Math.PI));
 
     // Jump Pad at Tier 1 (0, 3, 13)
     natureGroup.add(buildJumpPadMesh(0, 3, 13));
@@ -1066,6 +1243,18 @@ function buildIslandTerrain(night) {
     ].forEach(([rx, rz], idx) => {
       const y = (Math.sqrt(rx * rx + rz * rz) <= 8) ? 6 : (Math.sqrt(rx * rx + rz * rz) <= 24 ? 3 : 0);
       natureGroup.add(buildMossyRock(rx, rz, y, 0.9 + (idx % 2) * 0.4));
+    });
+
+    // Cỏ linh tinh rải rác trên Đảo Chuông (Tầng 0 và Tầng 1)
+    const grassCoords3 = [
+      [14.0, -12.0, 0], [-16.0, -14.0, 0], [28.0, -8.0, 0], [-28.0, -6.0, 0],
+      [10.0, -28.0, 0], [-12.0, -26.0, 0], [32.0, 8.0, 0], [-30.0, 10.0, 0],
+      [6.0, -8.0, 0], [-6.0, -10.0, 0], [22.0, 6.0, 0], [-20.0, 4.0, 0],
+      [12.0, 16.0, 3], [-14.0, 16.0, 3], [6.0, 18.0, 3], [-6.0, 18.0, 3],
+      [16.0, 6.0, 3], [-16.0, 6.0, 3]
+    ];
+    grassCoords3.forEach(([gx, gz, gy], idx) => {
+      natureGroup.add(buildGrassTuft(gx, gz, gy, 0.85 + (idx % 3) * 0.2));
     });
   }
 }
