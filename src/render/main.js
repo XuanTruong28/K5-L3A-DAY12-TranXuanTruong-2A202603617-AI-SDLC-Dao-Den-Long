@@ -13,6 +13,7 @@ const dialogOverlay = document.getElementById('dialog-overlay');
 const dialogTitle = document.getElementById('dialog-title');
 const dialogMsg = document.getElementById('dialog-msg');
 const btnReplay = document.getElementById('btn-replay');
+const interactPrompt = document.getElementById('interact-prompt');
 
 // Initialize Three.js Scene, Camera, Renderer
 const scene = new THREE.Scene();
@@ -131,24 +132,44 @@ for (const l of sim.lanterns) {
   pillar.castShadow = true;
   lGroup.add(pillar);
 
-  // Big Lantern Box / Sphere
+  // Big Lantern Outer Cage (Translucent paper style)
   const lanternCageGeo = new THREE.SphereGeometry(0.7, 16, 16);
   const lanternCageMat = new THREE.MeshStandardMaterial({
-    color: 0x3a1a10,
+    color: 0x2d1a10,
     roughness: 0.5,
-    wireframe: false
+    transparent: true,
+    opacity: 0.85
   });
   const cage = new THREE.Mesh(lanternCageGeo, lanternCageMat);
   cage.position.y = 2.8;
   lGroup.add(cage);
 
-  // Light
-  const pLight = new THREE.PointLight(0xff9f1c, 0, 16);
+  // Inner Glowing Core Flame (MeshBasicMaterial glows bright regardless of lights)
+  const coreGeo = new THREE.SphereGeometry(0.42, 16, 16);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.1 });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  core.position.y = 2.8;
+  lGroup.add(core);
+
+  // Vertical Beacon Light Beam when lit
+  const beamGeo = new THREE.CylinderGeometry(0.1, 1.2, 18, 16, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xffbe0b,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.y = 11.8;
+  lGroup.add(beam);
+
+  // High-intensity PointLight for Three.js r170 physically correct lighting
+  const pLight = new THREE.PointLight(0xff9f1c, 0, 25, 1.2);
   pLight.position.y = 2.8;
   lGroup.add(pLight);
 
   scene.add(lGroup);
-  lanternMeshes.set(l.id, { group: lGroup, cage, mat: lanternCageMat });
+  lanternMeshes.set(l.id, { group: lGroup, cage, mat: lanternCageMat, core, coreMat, beam, beamMat });
   lanternLightMap.set(l.id, pLight);
 }
 
@@ -298,6 +319,34 @@ function updateHUD() {
     dialogMsg.textContent = `${reasonText} Tổng điểm: ${sim.score}`;
     dialogOverlay.style.display = 'flex';
   }
+
+  // Interactive Prompt when near any lantern
+  let nearLantern = null;
+  for (const l of sim.lanterns) {
+    const dx = sim.player.pos[0] - l.pos[0];
+    const dz = sim.player.pos[2] - l.pos[2];
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist <= sim.tuning.interact_radius + 0.6) {
+      nearLantern = l;
+      break;
+    }
+  }
+
+  if (nearLantern && sim.state === 'playing') {
+    interactPrompt.style.display = 'block';
+    if (nearLantern.lit) {
+      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id}</b> đã thắp sáng rực rỡ! ✨ (Vùng an toàn)`;
+      interactPrompt.style.borderColor = '#06d6a0';
+    } else if (sim.player.carried > 0) {
+      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id}:</b> Bấm <kbd style="background:#ffd166;color:#111;padding:2px 6px;border-radius:4px;font-weight:bold;">E</kbd> hoặc <kbd style="background:#ffd166;color:#111;padding:2px 6px;border-radius:4px;font-weight:bold;">Space</kbd> để nạp ánh sáng! (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost} đom đóm)`;
+      interactPrompt.style.borderColor = '#ffd166';
+    } else {
+      interactPrompt.innerHTML = `🏮 <b>${nearLantern.id} (Đã nạp: ${nearLantern.deposited}/${sim.tuning.lantern_cost}):</b> Cần đom đóm để thắp sáng! Hãy đi gom đom đóm ✨ trước!`;
+      interactPrompt.style.borderColor = '#ff6b6b';
+    }
+  } else {
+    interactPrompt.style.display = 'none';
+  }
 }
 
 // Game Loop
@@ -365,12 +414,28 @@ function animate() {
     const pLight = lanternLightMap.get(l.id);
     if (l.lit) {
       lData.mat.color.setHex(0xffaa00);
-      lData.mat.emissive = new THREE.Color(0xff8800);
-      pLight.intensity = 4.0;
+      lData.mat.emissive = new THREE.Color(0xff9900);
+      lData.mat.emissiveIntensity = 2.5;
+      lData.coreMat.opacity = 1.0;
+      lData.core.scale.set(1.4, 1.4, 1.4);
+      lData.beamMat.opacity = 0.5 + Math.sin(Date.now() * 0.004) * 0.15;
+      pLight.intensity = 85.0;
     } else {
-      lData.mat.color.setHex(0x3a1a10);
-      lData.mat.emissive = new THREE.Color(0x000000);
-      pLight.intensity = l.deposited > 0 ? (l.deposited / sim.tuning.lantern_cost) * 1.5 : 0;
+      const ratio = l.deposited / sim.tuning.lantern_cost;
+      if (ratio > 0) {
+        lData.mat.color.setHex(0x553311);
+        lData.coreMat.opacity = 0.2 + ratio * 0.6;
+        const scaleVal = 0.8 + ratio * 0.4;
+        lData.core.scale.set(scaleVal, scaleVal, scaleVal);
+        pLight.intensity = ratio * 25.0;
+      } else {
+        lData.mat.color.setHex(0x2d1a10);
+        lData.mat.emissive = new THREE.Color(0x000000);
+        lData.coreMat.opacity = 0.05;
+        lData.core.scale.set(0.6, 0.6, 0.6);
+        pLight.intensity = 0;
+      }
+      lData.beamMat.opacity = 0;
     }
   }
 
