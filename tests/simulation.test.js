@@ -118,3 +118,32 @@ test('Shade attacks player and lose condition on 0 flames', () => {
   assert.equal(gameOverEv.data.reason, 'no_flames');
   assert.equal(sim.state, 'lost');
 });
+
+test('Unlit lanterns do not repel shades, lit lanterns repel shades within safe_radius', () => {
+  const scenario = {
+    player: { pos: [0, 0, 0], carried: 0, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    lanterns: [
+      { id: "L1", pos: [10, 0, 0], lit: false, deposited: 0 },
+      { id: "L2", pos: [0, 0, 25], lit: true, deposited: 3 }
+    ],
+    shades: [
+      { id: "S1", pos: [11, 0, 0], state: "chase" }, // within safe_radius (4m) of unlit L1
+      { id: "S2", pos: [0, 0, 26], state: "chase" }  // within safe_radius (4m) of lit L2
+    ]
+  };
+
+  const sim = new Simulation({ scenario });
+  sim.step({});
+
+  const s1 = sim.shades.find(s => s.id === 'S1');
+  const s2 = sim.shades.find(s => s.id === 'S2');
+
+  // S1 was near unlit L1: should NOT be pushed out to 4m, it can stay near L1 and continue chasing towards player
+  assert.ok(Math.abs(s1.pos[0] - 10) < 4.0);
+
+  // S2 was near lit L2: MUST be repelled out to safe_radius (4m away from [0, 0, 25])
+  const distL2 = Math.hypot(s2.pos[0] - 0, s2.pos[2] - 25);
+  assert.ok(distL2 >= 3.99);
+});

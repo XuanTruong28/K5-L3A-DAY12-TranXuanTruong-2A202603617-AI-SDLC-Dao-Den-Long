@@ -164,7 +164,7 @@ for (let c = 0; c < 2; c++) {
 scene.add(islandGroup);
 
 // ==========================================
-// 3. PROCEDURAL FLORA & OBSTACLES (SKY GARDEN)
+// 3. TROPICAL ISLAND FLORA & OBSTACLES (DỪA, CỌ, CÂY ĐẢO)
 // ==========================================
 function decoRandom(seed) {
   let s = seed % 2147483647;
@@ -179,49 +179,36 @@ const rand = decoRandom(999);
 // Physical obstacle list for trees & rocks (Mây cannot walk through, slides smoothly)
 const obstacles = [];
 
-// Multi-color palette for diverse trees (Sky: Children of the Light aesthetic)
-const foliageMatTeal = new THREE.MeshStandardMaterial({
-  color: 0x1f6655,
-  roughness: 0.85,
-  metalness: 0.05,
-  flatShading: true
+// Tropical materials for island trees
+const palmTrunkMat = new THREE.MeshStandardMaterial({
+  color: 0x8b5a2b, // warm coconut palm bark
+  roughness: 0.9,
+  metalness: 0.05
 });
-const foliageMatMint = new THREE.MeshStandardMaterial({
-  color: 0x2d8a74,
+const palmLeafMat1 = new THREE.MeshStandardMaterial({
+  color: 0x2d6a4f, // lush deep palm frond green
   roughness: 0.8,
   metalness: 0.05,
-  flatShading: true
+  side: THREE.DoubleSide
 });
-const foliageMatGold = new THREE.MeshStandardMaterial({
-  color: 0xf4a261,
+const palmLeafMat2 = new THREE.MeshStandardMaterial({
+  color: 0x40916c, // bright tropical palm leaf
   roughness: 0.75,
   metalness: 0.05,
-  flatShading: true
+  side: THREE.DoubleSide
 });
-const foliageMatAmber = new THREE.MeshStandardMaterial({
-  color: 0xe76f51,
-  roughness: 0.8,
-  metalness: 0.05,
-  flatShading: true
+const coconutMat = new THREE.MeshStandardMaterial({
+  color: 0x386641,
+  roughness: 0.8
 });
-const foliageMatViolet = new THREE.MeshStandardMaterial({
-  color: 0x9d4edd,
+const shrubMat = new THREE.MeshStandardMaterial({
+  color: 0x1b4332,
   roughness: 0.85,
-  metalness: 0.05,
   flatShading: true
 });
-const foliageMatLavender = new THREE.MeshStandardMaterial({
-  color: 0xc77dff,
-  roughness: 0.8,
-  metalness: 0.05,
-  flatShading: true
-});
-
-const trunkMatWood = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 });
-const trunkMatBirch = new THREE.MeshStandardMaterial({ color: 0x6d594b, roughness: 0.85 });
 
 const treeGroup = new THREE.Group();
-const treeCount = 42;
+const islandPlantCount = 44;
 
 // Keep safe clearance around center (player start) and 5 lanterns
 const safeZones = [
@@ -244,11 +231,11 @@ function isSafeFromZones(x, z, extraRadius = 1.0) {
   return true;
 }
 
-for (let i = 0; i < treeCount; i++) {
+for (let i = 0; i < islandPlantCount; i++) {
   let tx = 0, tz = 0, valid = false;
   for (let attempt = 0; attempt < 50; attempt++) {
     const angle = rand() * Math.PI * 2;
-    const dist = 6.5 + Math.sqrt(rand()) * (ISLAND_RADIUS - 9.5);
+    const dist = 6.0 + Math.sqrt(rand()) * (ISLAND_RADIUS - 9.0);
     tx = Math.cos(angle) * dist;
     tz = Math.sin(angle) * dist;
     if (isSafeFromZones(tx, tz, 2.2)) {
@@ -258,87 +245,122 @@ for (let i = 0; i < treeCount; i++) {
   }
   if (!valid) continue;
 
-  const tScale = 0.75 + rand() * 0.6;
-  const treeType = Math.floor(rand() * 3); // 0: Ancient Cloud Teal, 1: Golden Spirit, 2: Twilight Violet
-  const singleTree = new THREE.Group();
-  singleTree.position.set(tx, 0, tz);
+  const pScale = 0.8 + rand() * 0.55;
+  const plantType = rand() < 0.5 ? 'coconut' : rand() < 0.8 ? 'fanpalm' : 'shrub';
+  const plantObj = new THREE.Group();
+  plantObj.position.set(tx, 0, tz);
 
-  // Trunk with slight bend
-  const trunkHeight = (2.2 + rand() * 0.8) * tScale;
-  const trunkBaseRadius = (0.28 + rand() * 0.08) * tScale;
-  const trunkGeo = new THREE.CylinderGeometry(trunkBaseRadius * 0.55, trunkBaseRadius, trunkHeight, 8);
-  const currentTrunkMat = treeType === 1 ? trunkMatBirch : trunkMatWood;
-  const trunkMesh = new THREE.Mesh(trunkGeo, currentTrunkMat);
-  trunkMesh.position.y = trunkHeight * 0.5;
-  trunkMesh.rotation.z = (rand() - 0.5) * 0.18;
-  trunkMesh.rotation.x = (rand() - 0.5) * 0.18;
-  trunkMesh.castShadow = true;
-  singleTree.add(trunkMesh);
+  if (plantType === 'coconut') {
+    // 1. CÂY DỪA BIỂN ĐẢO (COCONUT PALM)
+    const trunkHeight = (4.0 + rand() * 1.5) * pScale;
+    const trunkRadius = 0.26 * pScale;
+    const leanAngle = (rand() - 0.5) * 0.35;
+    const leanDir = rand() * Math.PI * 2;
 
-  // Diverse canopy shapes per species
-  if (treeType === 0) {
-    // Species 0: Ancient Cloud Canopy (3 tiers of overlapping fluffy balls)
-    const canopyMat = rand() > 0.4 ? foliageMatTeal : foliageMatMint;
-    for (let k = 0; k < 3; k++) {
-      const fRadius = (1.05 - k * 0.22) * tScale;
-      const foliageGeo = new THREE.DodecahedronGeometry(fRadius, 1);
-      const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
-      foliageMesh.position.set(
-        (rand() - 0.5) * 0.35 * tScale,
-        trunkHeight + (0.3 + k * 0.65) * tScale,
-        (rand() - 0.5) * 0.35 * tScale
+    // Segmented curved trunk
+    const segments = 5;
+    let prevY = 0;
+    let curX = 0, curZ = 0;
+    for (let s = 0; s < segments; s++) {
+      const segH = trunkHeight / segments;
+      const segGeo = new THREE.CylinderGeometry(
+        trunkRadius * (1 - (s + 1) * 0.08),
+        trunkRadius * (1 - s * 0.08),
+        segH,
+        7
       );
-      foliageMesh.castShadow = true;
-      singleTree.add(foliageMesh);
+      const segMesh = new THREE.Mesh(segGeo, palmTrunkMat);
+      curX += Math.cos(leanDir) * (s * 0.12 * pScale);
+      curZ += Math.sin(leanDir) * (s * 0.12 * pScale);
+      segMesh.position.set(curX, prevY + segH * 0.5, curZ);
+      segMesh.rotation.z = Math.cos(leanDir) * leanAngle;
+      segMesh.rotation.x = -Math.sin(leanDir) * leanAngle;
+      segMesh.castShadow = true;
+      plantObj.add(segMesh);
+      prevY += segH;
     }
-  } else if (treeType === 1) {
-    // Species 1: Golden Spirit Tree (Tall crown with amber & gold layers)
-    const canopyMat = rand() > 0.5 ? foliageMatGold : foliageMatAmber;
-    const fRadius = 1.15 * tScale;
-    const foliageGeo = new THREE.SphereGeometry(fRadius, 12, 12);
-    const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
-    foliageMesh.scale.set(1.0, 1.35, 1.0);
-    foliageMesh.position.set(0, trunkHeight + 0.8 * tScale, 0);
-    foliageMesh.castShadow = true;
-    singleTree.add(foliageMesh);
 
-    // Glowing little spirit light in foliage
-    const fLightMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18 * tScale, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffd166 })
-    );
-    fLightMesh.position.set(0.4 * tScale, trunkHeight + 0.7 * tScale, 0.4 * tScale);
-    singleTree.add(fLightMesh);
+    // Top Crown of Palm Fronds (7-8 curved drooping leaves)
+    const crownX = curX;
+    const crownY = prevY;
+    const crownZ = curZ;
+
+    const frondCount = 7;
+    for (let f = 0; f < frondCount; f++) {
+      const frondAngle = (f / frondCount) * Math.PI * 2 + rand() * 0.2;
+      const frondGroup = new THREE.Group();
+      frondGroup.position.set(crownX, crownY, crownZ);
+      frondGroup.rotation.y = frondAngle;
+
+      // Curved palm blade
+      const leafGeo = new THREE.BoxGeometry(0.35 * pScale, 0.06, 2.2 * pScale);
+      const leafMesh = new THREE.Mesh(leafGeo, f % 2 === 0 ? palmLeafMat1 : palmLeafMat2);
+      leafMesh.position.set(0, -0.25 * pScale, 1.1 * pScale);
+      leafMesh.rotation.x = -0.45; // arch downward
+      leafMesh.castShadow = true;
+      frondGroup.add(leafMesh);
+      plantObj.add(frondGroup);
+    }
+
+    // Coconuts cluster under fronds
+    for (let c = 0; c < 3; c++) {
+      const cMesh = new THREE.Mesh(new THREE.SphereGeometry(0.16 * pScale, 8, 8), coconutMat);
+      const cAngle = (c / 3) * Math.PI * 2;
+      cMesh.position.set(
+        crownX + Math.cos(cAngle) * 0.25 * pScale,
+        crownY - 0.2 * pScale,
+        crownZ + Math.sin(cAngle) * 0.25 * pScale
+      );
+      plantObj.add(cMesh);
+    }
+
+    treeGroup.add(plantObj);
+    obstacles.push({ x: tx, z: tz, radius: trunkRadius * 1.3 });
+  } else if (plantType === 'fanpalm') {
+    // 2. CÂY CỌ QUẠT NHIỆT ĐỚI (FAN PALM)
+    const trunkH = (1.5 + rand() * 0.8) * pScale;
+    const trunkGeo = new THREE.CylinderGeometry(0.28 * pScale, 0.38 * pScale, trunkH, 7);
+    const trunkMesh = new THREE.Mesh(trunkGeo, palmTrunkMat);
+    trunkMesh.position.y = trunkH * 0.5;
+    trunkMesh.castShadow = true;
+    plantObj.add(trunkMesh);
+
+    // Radiating fan leaves
+    const fanCount = 6;
+    for (let f = 0; f < fanCount; f++) {
+      const fanAngle = (f / fanCount) * Math.PI * 2;
+      const fanGeo = new THREE.CircleGeometry(0.85 * pScale, 5);
+      const fanMesh = new THREE.Mesh(fanGeo, palmLeafMat2);
+      fanMesh.position.set(
+        Math.cos(fanAngle) * 0.65 * pScale,
+        trunkH + 0.3 * pScale,
+        Math.sin(fanAngle) * 0.65 * pScale
+      );
+      fanMesh.rotation.x = -Math.PI / 3;
+      fanMesh.rotation.y = fanAngle;
+      fanMesh.castShadow = true;
+      plantObj.add(fanMesh);
+    }
+
+    treeGroup.add(plantObj);
+    obstacles.push({ x: tx, z: tz, radius: 0.38 * pScale });
   } else {
-    // Species 2: Twilight Violet Willow (Soft pastel lavender clusters)
-    const canopyMat = rand() > 0.5 ? foliageMatViolet : foliageMatLavender;
-    for (let k = 0; k < 4; k++) {
-      const angleK = (k / 4) * Math.PI * 2;
-      const fRadius = (0.75 + rand() * 0.25) * tScale;
-      const foliageGeo = new THREE.DodecahedronGeometry(fRadius, 1);
-      const foliageMesh = new THREE.Mesh(foliageGeo, canopyMat);
-      foliageMesh.position.set(
-        Math.cos(angleK) * 0.65 * tScale,
-        trunkHeight + (0.2 + (k % 2) * 0.4) * tScale,
-        Math.sin(angleK) * 0.65 * tScale
-      );
-      foliageMesh.castShadow = true;
-      singleTree.add(foliageMesh);
-    }
+    // 3. CÂY BỤI ĐẢO & CÂY LINH TINH (COASTAL ISLAND BUSH)
+    const bushRadius = (0.75 + rand() * 0.45) * pScale;
+    const bushGeo = new THREE.DodecahedronGeometry(bushRadius, 1);
+    const bushMesh = new THREE.Mesh(bushGeo, shrubMat);
+    bushMesh.scale.set(1.2, 0.75, 1.2);
+    bushMesh.position.y = bushRadius * 0.6;
+    bushMesh.castShadow = true;
+    plantObj.add(bushMesh);
+
+    treeGroup.add(plantObj);
+    obstacles.push({ x: tx, z: tz, radius: bushRadius * 0.75 });
   }
-
-  treeGroup.add(singleTree);
-
-  // Register physical obstacle collision radius for trunk
-  obstacles.push({
-    x: tx,
-    z: tz,
-    radius: trunkBaseRadius * 1.15
-  });
 }
 scene.add(treeGroup);
 
-// B. Ancient Rocks & Stones (With collision)
+// B. Ancient Coastal Rocks & Stones (With collision)
 const rockGeo = new THREE.DodecahedronGeometry(0.65, 0);
 const rockMat = new THREE.MeshStandardMaterial({
   color: 0x36414c,
@@ -375,7 +397,6 @@ scene.add(rockGroup);
 
 // C. Stylized Lush Grass Clumps (Organic, varied, walkable - NO COLLISION)
 const grassBladeCount = 420;
-// Multi-blade curved clump geometry for natural look
 const grassClumpGeo = new THREE.ConeGeometry(0.24, 0.75, 4);
 const grassMatEmerald = new THREE.MeshStandardMaterial({
   color: 0x237055,
@@ -476,73 +497,157 @@ playerGroup.add(smallLanternGroup);
 scene.add(playerGroup);
 
 // ==========================================
-// 5. ANCIENT LANTERNS (5 BIG BEACONS)
+// 5. TRADITIONAL CHINESE PAGODA LANTERNS (5 ĐÈN LỒNG TRUNG HOA)
 // ==========================================
 const lanternMeshes = new Map();
 const lanternLightMap = new Map();
 
-// Pre-allocate colors for zero-allocation performance
-const COLOR_LIT_MAT = new THREE.Color(0xffbe0b);
-const COLOR_LIT_EMISSIVE = new THREE.Color(0xff8800);
-const COLOR_UNLIT_MAT = new THREE.Color(0x2d1a10);
+// Colors for Chinese red silk lantern states
+const COLOR_LIT_SILK = new THREE.Color(0xd90429); // imperial red
+const COLOR_LIT_EMISSIVE = new THREE.Color(0xff4d00); // fiery orange-gold glow
+const COLOR_UNLIT_SILK = new THREE.Color(0x3a0d14); // dark muted cold silk
 const COLOR_UNLIT_EMISSIVE = new THREE.Color(0x000000);
-const COLOR_PARTIAL_MAT = new THREE.Color(0x663d14);
+const COLOR_PARTIAL_SILK = new THREE.Color(0x7a1c28);
+
+// Shared materials for Chinese architectural tower elements
+const stonePedestalMat = new THREE.MeshStandardMaterial({
+  color: 0x2b2d42,
+  roughness: 0.92,
+  flatShading: true
+});
+const redLacquerMat = new THREE.MeshStandardMaterial({
+  color: 0x8b0000, // Chinese cinnabar red lacquer
+  roughness: 0.5,
+  metalness: 0.15
+});
+const goldTrimMat = new THREE.MeshStandardMaterial({
+  color: 0xffb703, // gilded gold trim
+  roughness: 0.35,
+  metalness: 0.6
+});
+const pagodaRoofMat = new THREE.MeshStandardMaterial({
+  color: 0x1a2634, // dark slate pagoda roof tiles
+  roughness: 0.7,
+  flatShading: true
+});
+const tasselMat = new THREE.MeshStandardMaterial({
+  color: 0xd90429, // red silk tassel
+  roughness: 0.6
+});
 
 for (const l of sim.lanterns) {
   const lGroup = new THREE.Group();
   lGroup.position.set(l.pos[0], 0, l.pos[2]);
 
-  // Ancient Carved Stone Base
-  const baseStoneGeo = new THREE.CylinderGeometry(0.55, 0.75, 0.5, 8);
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x3d405b, roughness: 0.9, flatShading: true });
-  const baseStone = new THREE.Mesh(baseStoneGeo, stoneMat);
-  baseStone.position.y = 0.25;
-  baseStone.receiveShadow = true;
-  baseStone.castShadow = true;
-  lGroup.add(baseStone);
+  // 1. Two-tier Carved Octagonal Stone Base (Bệ đá hoa cương 2 tầng)
+  const baseLowerGeo = new THREE.CylinderGeometry(0.75, 0.95, 0.28, 8);
+  const baseLower = new THREE.Mesh(baseLowerGeo, stonePedestalMat);
+  baseLower.position.y = 0.14;
+  baseLower.receiveShadow = true;
+  baseLower.castShadow = true;
+  lGroup.add(baseLower);
 
-  // Pillar
-  const pillarGeo = new THREE.CylinderGeometry(0.22, 0.28, 2.6, 10);
-  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x58311e, roughness: 0.85 });
-  const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-  pillar.position.y = 1.55;
+  const baseUpperGeo = new THREE.CylinderGeometry(0.55, 0.7, 0.26, 8);
+  const baseUpper = new THREE.Mesh(baseUpperGeo, stonePedestalMat);
+  baseUpper.position.y = 0.41;
+  baseUpper.receiveShadow = true;
+  baseUpper.castShadow = true;
+  lGroup.add(baseUpper);
+
+  // 2. Red Lacquer Pillar with Gold Rings (Cột trụ sơn mài đỏ nẹp vàng)
+  const pillarGeo = new THREE.CylinderGeometry(0.18, 0.22, 2.7, 12);
+  const pillar = new THREE.Mesh(pillarGeo, redLacquerMat);
+  pillar.position.y = 1.76;
   pillar.castShadow = true;
   lGroup.add(pillar);
 
-  // Big Lantern Outer Cage (Translucent pagoda/sphere style)
-  const lanternCageGeo = new THREE.SphereGeometry(0.72, 16, 16);
-  const lanternCageMat = new THREE.MeshStandardMaterial({
-    color: COLOR_UNLIT_MAT.clone(),
-    roughness: 0.55,
-    transparent: true,
-    opacity: 0.85
-  });
-  const cage = new THREE.Mesh(lanternCageGeo, lanternCageMat);
-  cage.position.y = 2.95;
-  lGroup.add(cage);
+  // Gold rings on pillar
+  for (let r = 0; r < 2; r++) {
+    const ringGeo = new THREE.TorusGeometry(0.23, 0.035, 8, 16);
+    const ringMesh = new THREE.Mesh(ringGeo, goldTrimMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    ringMesh.position.y = 0.9 + r * 1.3;
+    lGroup.add(ringMesh);
+  }
 
-  // Glowing Core Flame
-  const coreGeo = new THREE.SphereGeometry(0.42, 14, 14);
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.1 });
+  // 3. Dougong Brackets / Crossbars (Đấu củng xà đỡ mái đình)
+  const bracketGeo = new THREE.BoxGeometry(0.85, 0.1, 0.85);
+  const bracket = new THREE.Mesh(bracketGeo, redLacquerMat);
+  bracket.position.y = 3.12;
+  bracket.castShadow = true;
+  lGroup.add(bracket);
+
+  // 4. Traditional Chinese Red Silk Lantern (Lồng Đèn Lụa Đỏ Son Bát Giác)
+  const lanternGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.88, 8);
+  const lanternSilkMat = new THREE.MeshStandardMaterial({
+    color: COLOR_UNLIT_SILK.clone(),
+    roughness: 0.45,
+    transparent: true,
+    opacity: 0.92
+  });
+  const silkLantern = new THREE.Mesh(lanternGeo, lanternSilkMat);
+  silkLantern.position.y = 2.45;
+  silkLantern.castShadow = true;
+  lGroup.add(silkLantern);
+
+  // Gold top and bottom collars for silk lantern
+  const collarTopGeo = new THREE.CylinderGeometry(0.52, 0.52, 0.08, 8);
+  const collarTop = new THREE.Mesh(collarTopGeo, goldTrimMat);
+  collarTop.position.y = 2.91;
+  lGroup.add(collarTop);
+
+  const collarBottomGeo = new THREE.CylinderGeometry(0.52, 0.52, 0.08, 8);
+  const collarBottom = new THREE.Mesh(collarBottomGeo, goldTrimMat);
+  collarBottom.position.y = 1.99;
+  lGroup.add(collarBottom);
+
+  // 5. Hanging Red & Gold Silk Tassels (Tua rua lụa đỏ đung đưa)
+  const tasselGroup = new THREE.Group();
+  tasselGroup.position.y = 1.95;
+  const tasselCount = 4;
+  for (let t = 0; t < tasselCount; t++) {
+    const tAngle = (t / tasselCount) * Math.PI * 2;
+    const tMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.045, 0.45, 6), tasselMat);
+    tMesh.position.set(Math.cos(tAngle) * 0.38, -0.25, Math.sin(tAngle) * 0.38);
+    tasselGroup.add(tMesh);
+  }
+  lGroup.add(tasselGroup);
+
+  // 6. Hexagonal Curved Pagoda Eaves / Roof (Mái ngói lầu đình chùa 6 góc cong vút)
+  const roofLowerGeo = new THREE.ConeGeometry(1.25, 0.48, 6);
+  const roofLower = new THREE.Mesh(roofLowerGeo, pagodaRoofMat);
+  roofLower.position.y = 3.36;
+  roofLower.castShadow = true;
+  lGroup.add(roofLower);
+
+  // Pagoda Finial / Golden Gourd Top (Đỉnh hồ lô vàng kim bảo tháp)
+  const finialGeo = new THREE.SphereGeometry(0.18, 10, 10);
+  const finial = new THREE.Mesh(finialGeo, goldTrimMat);
+  finial.position.y = 3.72;
+  lGroup.add(finial);
+
+  // Inner Glowing Sacred Core Flame
+  const coreGeo = new THREE.SphereGeometry(0.38, 14, 14);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffea00, transparent: true, opacity: 0.1 });
   const core = new THREE.Mesh(coreGeo, coreMat);
-  core.position.y = 2.95;
+  core.position.y = 2.45;
   lGroup.add(core);
 
   // Soft Outer Glow Sprite
   const lanternSpriteMat = new THREE.SpriteMaterial({
     map: fireflyGlowTex,
-    color: 0xffa200,
+    color: 0xff6b35,
     transparent: true,
     opacity: 0.0,
     blending: THREE.AdditiveBlending
   });
   const lSprite = new THREE.Sprite(lanternSpriteMat);
-  lSprite.position.y = 2.95;
-  lSprite.scale.set(4.5, 4.5, 4.5);
+  lSprite.position.y = 2.5;
+  lSprite.scale.set(5.2, 5.2, 5.2);
   lGroup.add(lSprite);
 
   // Sky Beacon Beam (reaches into clouds)
-  const beamGeo = new THREE.CylinderGeometry(0.12, 1.4, 28, 16, 1, true);
+  const beamGeo = new THREE.CylinderGeometry(0.15, 1.6, 32, 16, 1, true);
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xffbe0b,
     transparent: true,
@@ -551,25 +656,26 @@ for (const l of sim.lanterns) {
     blending: THREE.AdditiveBlending
   });
   const beam = new THREE.Mesh(beamGeo, beamMat);
-  beam.position.y = 16.5;
+  beam.position.y = 18.5;
   lGroup.add(beam);
 
   // Lantern Light
-  const pLight = new THREE.PointLight(0xffaa00, 0, 26, 1.3);
-  pLight.position.y = 2.95;
+  const pLight = new THREE.PointLight(0xff7b00, 0, 28, 1.3);
+  pLight.position.y = 2.5;
   lGroup.add(pLight);
 
   scene.add(lGroup);
   lanternMeshes.set(l.id, {
     group: lGroup,
-    cage,
-    mat: lanternCageMat,
+    silkLantern,
+    mat: lanternSilkMat,
     core,
     coreMat,
     beam,
     beamMat,
     sprite: lSprite,
-    spriteMat: lanternSpriteMat
+    spriteMat: lanternSpriteMat,
+    tassels: tasselGroup
   });
   lanternLightMap.set(l.id, pLight);
 }
@@ -1001,26 +1107,31 @@ function animate() {
     const lData = lanternMeshes.get(l.id);
     const pLight = lanternLightMap.get(l.id);
     if (l.lit) {
-      lData.mat.color.copy(COLOR_LIT_MAT);
+      lData.mat.color.copy(COLOR_LIT_SILK);
       lData.mat.emissive.copy(COLOR_LIT_EMISSIVE);
-      lData.mat.emissiveIntensity = 2.4;
+      lData.mat.emissiveIntensity = 2.6;
       lData.coreMat.opacity = 1.0;
-      const corePulse = 1.4 + Math.sin(totalElapsed * 4.0 + l.pos[0]) * 0.12;
+      const corePulse = 1.35 + Math.sin(totalElapsed * 4.0 + l.pos[0]) * 0.12;
       lData.core.scale.set(corePulse, corePulse, corePulse);
       lData.spriteMat.opacity = 0.85 + Math.sin(totalElapsed * 3.0) * 0.15;
       lData.beamMat.opacity = 0.45 + Math.sin(totalElapsed * 3.5 + l.pos[2]) * 0.15;
       pLight.intensity = 85.0;
+      if (lData.tassels) {
+        lData.tassels.rotation.z = Math.sin(totalElapsed * 2.5 + l.pos[0]) * 0.12;
+      }
     } else {
       const ratio = l.deposited / sim.tuning.lantern_cost;
       if (ratio > 0) {
-        lData.mat.color.copy(COLOR_PARTIAL_MAT);
+        lData.mat.color.copy(COLOR_PARTIAL_SILK);
+        lData.mat.emissive.setRGB(0.7 * ratio, 0.25 * ratio, 0.0);
+        lData.mat.emissiveIntensity = ratio * 1.5;
         lData.coreMat.opacity = 0.2 + ratio * 0.6;
         const scaleVal = 0.8 + ratio * 0.4;
         lData.core.scale.set(scaleVal, scaleVal, scaleVal);
         lData.spriteMat.opacity = ratio * 0.4;
         pLight.intensity = ratio * 28.0;
       } else {
-        lData.mat.color.copy(COLOR_UNLIT_MAT);
+        lData.mat.color.copy(COLOR_UNLIT_SILK);
         lData.mat.emissive.copy(COLOR_UNLIT_EMISSIVE);
         lData.coreMat.opacity = 0.05;
         lData.core.scale.set(0.6, 0.6, 0.6);

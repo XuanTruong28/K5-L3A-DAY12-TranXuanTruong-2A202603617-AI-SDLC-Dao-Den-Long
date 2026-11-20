@@ -342,8 +342,9 @@ export class Simulation {
             shade.pos[2] += dirZ * shadeSpeedPerTick;
           }
 
-          // Enforce lantern safe radius
+          // Enforce lantern safe radius only when the lantern is lit!
           for (const lantern of this.lanterns) {
+            if (!lantern.lit) continue; // Shades are not afraid of unlit dark lanterns
             const dLantern = distXZ(shade.pos, lantern.pos);
             if (dLantern < this.tuning.safe_radius) {
               if (dLantern > 0.001) {
