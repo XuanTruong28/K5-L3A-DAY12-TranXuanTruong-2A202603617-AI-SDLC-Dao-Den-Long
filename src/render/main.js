@@ -2377,13 +2377,37 @@ function animate(now) {
     interactPrompt.style.display = 'none';
   }
 
-  // Off-screen indicator
-  if (nearestUnlit) {
-    const lVec = new THREE.Vector3(nearestUnlit.pos[0], nearestUnlit.pos[1] + 1.8, nearestUnlit.pos[2]);
+  // Off-screen indicator (points towards nearest unlit lantern or critically low-fuel lantern)
+  let targetIndicatorLantern = null;
+  let minIndicatorDist = Infinity;
+  for (const l of sim.lanterns) {
+    if (!l.lit) {
+      const d = Math.sqrt((sim.player.pos[0] - l.pos[0])**2 + (sim.player.pos[2] - l.pos[2])**2);
+      if (d < minIndicatorDist) {
+        minIndicatorDist = d;
+        targetIndicatorLantern = l;
+      }
+    }
+  }
+  if (!targetIndicatorLantern) {
+    // If all are lit, find nearest low-fuel lantern (< 30 fuel = 1800 sub-units)
+    for (const l of sim.lanterns) {
+      if (l.lit && (l.fuel_sub ?? 6000) < 1800) {
+        const d = Math.sqrt((sim.player.pos[0] - l.pos[0])**2 + (sim.player.pos[2] - l.pos[2])**2);
+        if (d < minIndicatorDist) {
+          minIndicatorDist = d;
+          targetIndicatorLantern = l;
+        }
+      }
+    }
+  }
+
+  if (targetIndicatorLantern) {
+    const lVec = new THREE.Vector3(targetIndicatorLantern.pos[0], targetIndicatorLantern.pos[1] + 1.8, targetIndicatorLantern.pos[2]);
     lVec.project(camera);
     const isBehind = lVec.z > 1.0;
     const isOffscreen = isBehind || Math.abs(lVec.x) > 0.9 || Math.abs(lVec.y) > 0.9;
-    if (isOffscreen && minDist > 6.0) {
+    if (isOffscreen && minIndicatorDist > 6.0) {
       offscreenIndicator.style.display = 'block';
       let sx = (lVec.x * 0.5 + 0.5) * window.innerWidth;
       let sy = (-lVec.y * 0.5 + 0.5) * window.innerHeight;
